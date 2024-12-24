@@ -5,8 +5,30 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
 model User {
-  id       Int    @id @default(autoincrement())
-  username String @unique
-  password String
+  id        Int     @id @default(autoincrement())
+  username  String  @unique
+  password  String
+  email     String  @default("")
+  name      String  @default("")
+  phone     String?
+  role      String  @default("user") // user, admin, manager
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @default(now()) // 기본값 추가
+}
+
+model Application {
+  id                 Int      @id @default(autoincrement())
+  applicationTitle   String   // 신청 제목
+  applicationType    String   // 신청 종류
+  rangeStartDate     DateTime // 신청 기간 시작
+  rangeEndDate       DateTime // 신청 기간 종료
+  startDate          DateTime?
+  endDate            DateTime?
+  applicationLimit   String?
+  applicationApprove Boolean? // 확정 여부
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }

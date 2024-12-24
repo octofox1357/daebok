@@ -1,3 +1,449 @@
+==== FILE: ./app/admin/layout.tsx ====
+'use client'
+
+import { useState } from 'react'
+import Header from './header'
+import Sidebar from './sidebar'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 사이드바 토글
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <div
+      className={`flex h-screen transition-all duration-300 ${
+        isOpen ? 'ml-64' : ''
+      }`}
+    >
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+      {/* 컨텐츠 영역 */}
+      <div className='flex flex-col flex-1'>
+        {/* 헤더 */}
+        <Header
+          toggleSidebar={toggleSidebar}
+          isOpen={isOpen}
+        />
+        {/* 메인 */}
+        <main className='p-6 bg-gray-100 flex-1'>{children}</main>
+      </div>
+    </div>
+  )
+}
+\n
+==== FILE: ./app/admin/applications/new/page.tsx ====
+'use client'
+
+import React, { useState } from 'react'
+
+export default function ApplicationCreation() {
+  const [formData, setFormData] = useState({
+    applicationTitle: '',
+    applicationType: '외출',
+    rangeStartDate: '',
+    rangeEndDate: '',
+    startDate: '',
+    endDate: '',
+    applicationLimit: '',
+    applicationApprove: false,
+  })
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type, checked } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const response = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create application')
+      }
+
+      const result = await response.json()
+      alert('신청 접수가 성공적으로 생성되었습니다!')
+      console.log('Response:', result)
+    } catch (error) {
+      console.error('Error submitting form:', error)
+      alert('신청 접수 생성 중 오류가 발생했습니다.')
+    }
+  }
+
+  return (
+    <div className='max-w-4xl mx-auto p-4'>
+      <h1 className='text-2xl font-bold mb-4'>신청접수 생성하기</h1>
+      <form
+        onSubmit={handleSubmit}
+        className='bg-white shadow-md rounded-lg p-6'
+      >
+        {/* 제목 */}
+        <div className='mb-4'>
+          <label className='block font-bold mb-2'>신청 제목</label>
+          <input
+            type='text'
+            name='applicationTitle'
+            value={formData.applicationTitle}
+            onChange={handleChange}
+            className='form-input w-full'
+            placeholder='제목을 입력하세요'
+            required
+          />
+        </div>
+
+        {/* 종류 */}
+        <div className='mb-4'>
+          <label className='block font-bold mb-2'>종류</label>
+          <div className='flex space-x-4'>
+            {['외출', '외박', '휴가'].map((type) => (
+              <label
+                key={type}
+                className='flex items-center space-x-2'
+              >
+                <input
+                  type='radio'
+                  name='applicationType'
+                  value={type}
+                  checked={formData.applicationType === type}
+                  onChange={handleChange}
+                  className='form-radio'
+                />
+                <span>{type}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* 신청 기간 */}
+        <div className='mb-4'>
+          <label className='block font-bold mb-2'>신청 기간</label>
+          <div className='grid grid-cols-2 gap-4'>
+            <input
+              type='date'
+              name='rangeStartDate'
+              value={formData.rangeStartDate}
+              onChange={handleChange}
+              className='form-input w-full'
+              placeholder='시작일 선택'
+              required
+            />
+            <input
+              type='date'
+              name='rangeEndDate'
+              value={formData.rangeEndDate}
+              onChange={handleChange}
+              className='form-input w-full'
+              placeholder='종료일 선택'
+              required
+            />
+          </div>
+        </div>
+
+        {/* 노출 기간 */}
+        <div className='mb-4'>
+          <label className='block font-bold mb-2'>노출 기간</label>
+          <div className='grid grid-cols-2 gap-4'>
+            <input
+              type='date'
+              name='startDate'
+              value={formData.startDate}
+              onChange={handleChange}
+              className='form-input w-full'
+              placeholder='노출 시작일 선택'
+            />
+            <input
+              type='date'
+              name='endDate'
+              value={formData.endDate}
+              onChange={handleChange}
+              className='form-input w-full'
+              placeholder='노출 마감일 선택'
+            />
+          </div>
+        </div>
+
+        {/* 신청 조건 */}
+        <div className='mb-4'>
+          <label className='block font-bold mb-2'>신청 조건</label>
+          <input
+            type='text'
+            name='applicationLimit'
+            value={formData.applicationLimit}
+            onChange={handleChange}
+            className='form-input w-full'
+            placeholder='신청 조건을 입력하세요'
+          />
+        </div>
+
+        {/* 확정 여부 */}
+        <div className='mb-4 flex items-center'>
+          <label className='block font-bold mr-4'>확정 여부</label>
+          <input
+            type='checkbox'
+            name='applicationApprove'
+            checked={formData.applicationApprove}
+            onChange={handleChange}
+            className='form-checkbox'
+          />
+        </div>
+
+        {/* 생성 버튼 */}
+        <button
+          type='submit'
+          className='bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600'
+        >
+          생성하기
+        </button>
+      </form>
+    </div>
+  )
+}
+\n
+==== FILE: ./app/admin/applications/page.tsx ====
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation' // Next.js Router 사용
+
+type Application = {
+  id: number
+  applicationTitle: string
+  applicationType: string
+  rangeStartDate: string
+  rangeEndDate: string
+  startDate?: string | null
+  endDate?: string | null
+  applicationLimit?: string | null
+  applicationApprove?: boolean | null
+  createdAt: string
+  updatedAt: string
+}
+
+type Pagination = {
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export default function AdminApplications() {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [totalPages, setTotalPages] = useState<number>(0)
+  const itemsPerPage = 10
+  const router = useRouter() // Next.js Router
+
+  useEffect(() => {
+    fetchApplications()
+  }, [currentPage])
+
+  const fetchApplications = async () => {
+    try {
+      const response = await fetch(
+        `/api/applications?page=${currentPage}&pageSize=${itemsPerPage}`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications')
+      }
+      const data: { applications: Application[]; pagination: Pagination } =
+        await response.json()
+      setApplications(data.applications)
+      setTotalPages(data.pagination.totalPages)
+    } catch (error) {
+      console.error('Error fetching applications:', error)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleEdit = (id: number) => {
+    alert(`편집 페이지로 이동: 신청 ID ${id}`)
+  }
+
+  const navigateToNew = () => {
+    router.push('/admin/applications/new') // 새 페이지로 이동
+  }
+
+  return (
+    <div className='max-w-6xl mx-auto p-6'>
+      <h1 className='text-2xl font-bold mb-6'>접수관리</h1>
+      <div className='flex justify-between items-center mb-4'>
+        <h2 className='text-lg font-semibold'>접수목록</h2>
+        <button
+          onClick={navigateToNew}
+          className='bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600'
+        >
+          + 접수생성
+        </button>
+      </div>
+
+      <div className='overflow-x-auto'>
+        <table className='min-w-full table-auto border-collapse border border-gray-200'>
+          <thead>
+            <tr className='bg-gray-100'>
+              <th className='border border-gray-300 px-4 py-2'>제목</th>
+              <th className='border border-gray-300 px-4 py-2'>종류</th>
+              <th className='border border-gray-300 px-4 py-2'>시작일</th>
+              <th className='border border-gray-300 px-4 py-2'>마감일</th>
+              <th className='border border-gray-300 px-4 py-2'>제어</th>
+            </tr>
+          </thead>
+          <tbody>
+            {applications.map((application) => (
+              <tr
+                key={application.id}
+                className='hover:bg-gray-50'
+              >
+                <td className='border border-gray-300 px-4 py-2'>
+                  {application.applicationTitle}
+                </td>
+                <td className='border border-gray-300 px-4 py-2'>
+                  {application.applicationType}
+                </td>
+                <td className='border border-gray-300 px-4 py-2'>
+                  {new Date(application.rangeStartDate).toLocaleDateString()}
+                </td>
+                <td className='border border-gray-300 px-4 py-2'>
+                  {new Date(application.rangeEndDate).toLocaleDateString()}
+                </td>
+                <td className='border border-gray-300 px-4 py-2 text-center'>
+                  <button
+                    onClick={() => handleEdit(application.id)}
+                    className='bg-gray-400 text-white px-4 py-1 rounded hover:bg-gray-500'
+                  >
+                    편집
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 페이지네이션 */}
+      <div className='flex justify-center mt-6'>
+        <nav>
+          <ul className='flex space-x-2'>
+            {Array.from({ length: totalPages }, (_, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handlePageChange(index + 1)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === index + 1
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </div>
+  )
+}
+\n
+==== FILE: ./app/admin/header.tsx ====
+'use client'
+
+import React from 'react'
+import { FiMenu, FiX } from 'react-icons/fi'
+
+type HeaderProps = {
+  toggleSidebar: () => void
+  isOpen: boolean
+}
+
+export default function Header({ toggleSidebar, isOpen }: HeaderProps) {
+  return (
+    <header
+      className={`bg-white border-b p-4 shadow-sm flex justify-between items-center transition-all duration-300`}
+    >
+      <button
+        onClick={toggleSidebar}
+        className='text-gray-800 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-gray-300'
+      >
+        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+      </button>
+      <h1 className='text-lg font-bold'>어드민 헤더</h1>
+      <div className='text-gray-600'>사용자 메뉴</div>
+    </header>
+  )
+}
+\n
+==== FILE: ./app/admin/sidebar.tsx ====
+'use client'
+
+import React from 'react'
+import { useRouter } from 'next/navigation'
+
+type SidebarProps = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const router = useRouter()
+
+  const menuItems = [
+    { label: '대시보드', path: '/admin/dashboard' },
+    { label: '접수 관리', path: '/admin/applications' },
+    { label: '유저 관리', path: '/admin/users' },
+    { label: '설정', path: '/admin/settings' },
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsOpen(false)
+  }
+
+  return (
+    <aside
+      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white transform transition-transform duration-300 z-40 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      <div className='flex flex-col h-full'>
+        <nav className='flex-1 p-4'>
+          <ul className='space-y-2'>
+            {menuItems.map((item, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handleNavigation(item.path)}
+                  className='block w-full text-left px-4 py-2 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-600'
+                >
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </aside>
+  )
+}
+\n
 ==== FILE: ./app/register/page.tsx ====
 'use client'
 
@@ -88,6 +534,90 @@ export default function RegisterPage() {
   )
 }
 \n
+==== FILE: ./app/vacation/page.tsx ====
+'use client'
+
+// import 'react-calendar/dist/Calendar.css'
+import '../calendar.css'
+import React, { useState, useEffect } from 'react'
+import Calendar from 'react-calendar'
+import { Value } from 'react-calendar/src/shared/types.js'
+
+// 더미 데이터
+const dummyData = [
+  {
+    date: '2024-12-06',
+    text: '[금일현황]\n(출발) 1명 (복귀) 0명\n정기외박 출발 - 1명 정찬',
+    color: 'red',
+  },
+  {
+    date: '2024-12-08',
+    text: '[금일현황]\n(출발) 0명 (복귀) 0명\n정기외박 - 1명 정찬',
+    color: 'red',
+  },
+  {
+    date: '2024-12-09',
+    text: '[금일현황]\n(출발) 0명 (복귀) 1명\n정기외박 복귀 - 1명 정찬',
+    color: 'blue',
+  },
+]
+
+export default function VacationPage() {
+  const [selectedDate, setSelectedDate] = useState<Value | null>(null)
+
+  useEffect(() => {
+    setSelectedDate(new Date())
+  }, [])
+
+  // 날짜별 커스터마이즈된 내용을 표시
+  const tileContent = ({ date, view }: { date: Date; view: string }) => {
+    if (view === 'month') {
+      const formattedDate = date.toISOString().split('T')[0]
+      const data = dummyData.find((item) => item.date === formattedDate)
+      if (data) {
+        return (
+          <div
+            style={{
+              backgroundColor: data.color,
+              color: 'white',
+              fontSize: '12px',
+              borderRadius: '5px',
+              padding: '2px',
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {data.text}
+          </div>
+        )
+      }
+    }
+    return null
+  }
+
+  return (
+    <div className='flex flex-col h-screen'>
+      <header className='bg-blue-500 text-white text-center py-4'>
+        <h1 className='text-2xl font-bold'>휴가 / 외박 현황</h1>
+      </header>
+      <main className='flex-1 flex justify-center items-center p-4'>
+        {selectedDate && (
+          <Calendar
+            onChange={(value) => setSelectedDate(value)}
+            value={selectedDate}
+            className='bg-white shadow-lg rounded-md w-full max-w-4xl p-2'
+            view='month' // 월 보기
+            minDetail='month' // 최소 상세 보기
+            maxDetail='month' // 최대 상세 보기
+            prev2Label={null} // 연도 이동 비활성화
+            next2Label={null}
+            tileContent={tileContent} // 각 타일에 커스터마이즈된 내용 표시
+          />
+        )}
+      </main>
+    </div>
+  )
+}
+\n
 ==== FILE: ./app/layout.tsx ====
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -124,6 +654,297 @@ export default function RootLayout({
   );
 }
 \n
+==== FILE: ./app/outing/applications/page.tsx ====
+'use client'
+import React, { useState } from 'react'
+
+const dummyData = [
+  {
+    id: 1,
+    title: '[외출신청] 2024-12-30 ~ 2025-01-05',
+    type: '외출',
+    deadline: '2024-12-25',
+    status: '신청',
+  },
+  {
+    id: 2,
+    title: '[외출신청] 2024-12-23 ~ 2024-12-29',
+    type: '외출',
+    deadline: '2024-12-15',
+    status: '접수마감',
+  },
+  {
+    id: 3,
+    title: '[외출신청] 2024-12-16 ~ 2024-12-22',
+    type: '외출',
+    deadline: '2024-12-08',
+    status: '접수마감',
+  },
+  {
+    id: 4,
+    title: '[외출신청] 2024-12-09 ~ 2024-12-15',
+    type: '외출',
+    deadline: '2024-12-01',
+    status: '접수마감',
+  },
+  {
+    id: 5,
+    title: '[외출신청] 2024-12-02 ~ 2024-12-08',
+    type: '외출',
+    deadline: '2024-11-24',
+    status: '접수마감',
+  },
+  // 더미 데이터 추가 가능
+]
+
+export default function OutingApplication() {
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+
+  const totalPages = Math.ceil(dummyData.length / itemsPerPage)
+  const currentData = dummyData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  return (
+    <div className='container mx-auto p-4'>
+      <h1 className='text-2xl font-bold mb-4'>신청하기</h1>
+      <div className='overflow-x-auto'>
+        <table className='min-w-full table-auto border-collapse border border-gray-200'>
+          <thead>
+            <tr className='bg-gray-100'>
+              <th className='border border-gray-200 px-4 py-2'>제목</th>
+              <th className='border border-gray-200 px-4 py-2'>종류</th>
+              <th className='border border-gray-200 px-4 py-2'>마감일</th>
+              <th className='border border-gray-200 px-4 py-2'>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentData.map((item) => (
+              <tr
+                key={item.id}
+                className='hover:bg-gray-50'
+              >
+                <td className='border border-gray-200 px-4 py-2'>
+                  {item.title}
+                </td>
+                <td className='border border-gray-200 px-4 py-2'>
+                  {item.type}
+                </td>
+                <td className='border border-gray-200 px-4 py-2'>
+                  {item.deadline}
+                </td>
+                <td className='border border-gray-200 px-4 py-2'>
+                  <button
+                    className={`px-4 py-1 rounded text-white ${
+                      item.status === '신청' ? 'bg-blue-500' : 'bg-gray-400'
+                    }`}
+                  >
+                    {item.status}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 페이지네이션 */}
+      <div className='flex justify-center mt-4'>
+        <nav>
+          <ul className='flex space-x-2'>
+            {Array.from({ length: totalPages }, (_, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handlePageChange(index + 1)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === index + 1
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </div>
+  )
+}
+\n
+==== FILE: ./app/outing/page.tsx ====
+'use client'
+
+import React, { useState } from 'react'
+
+const tableData = {
+  dates: [
+    '2024-12-23 월',
+    '2024-12-24 화',
+    '2024-12-25 수',
+    '2024-12-26 목',
+    '2024-12-27 금',
+    '2024-12-28 토',
+    '2024-12-29 일',
+  ],
+  confirmedCount: [33, 37, 36, 27, 40, 35, 35],
+  rows: [
+    [
+      '김준수(보안야간)',
+      '김재길(직식휴무)',
+      '김현수(보안야간)',
+      '김현수(보안야간)',
+      '유성연(대체휴무)',
+      '김현수(보안야간)',
+      '김현수(보안야간)',
+    ],
+    [
+      '강재민(보안야간)',
+      '김현수(보안야간)',
+      '이민호(보안야간)',
+      '이민호(보안야간)',
+      '김유진(직식휴무)',
+      '이민호(보안야간)',
+      '이민호(보안야간)',
+    ],
+    [
+      '전효인(보안야간)',
+      '이민호(보안야간)',
+      '김준수(보안야간)',
+      '김준수(보안야간)',
+      '김도일(직식휴무)',
+      '강재민(보안야간)',
+      '김준수(보안야간)',
+    ],
+    [
+      '이승호(보안야간)',
+      '강재민(보안야간)',
+      '박훈석(보안야간)',
+      '박훈석(보안야간)',
+      '조현상(대체휴무)',
+      '전효인(보안야간)',
+      '박훈석(보안야간)',
+    ],
+    [
+      '최 훈(대체휴무)',
+      '전효인(보안야간)',
+      '김영옥(보안야간)',
+      '강재민(보안야간)',
+      '조성균(대체휴무)',
+      '김영옥(보안야간)',
+      '김영옥(보안야간)',
+    ],
+    [
+      '임정빈',
+      '김영옥(보안야간)',
+      '이승호(보안야간)',
+      '전효인(보안야간)',
+      '김준수(보안야간)',
+      '이승호(보안야간)',
+      '이승호(보안야간)',
+    ],
+    [
+      '김도윤',
+      '이승호(보안야간)',
+      '지성형(대체휴무)',
+      '이현용',
+      '박훈석(보안야간)',
+      '고준영',
+      '김지윤',
+    ],
+    [
+      '김지윤',
+      '정규영(대체휴무)',
+      '임정빈',
+      '김도윤',
+      '강재민(보안야간)',
+      '이현용',
+      '박성현',
+    ],
+    [
+      '최동인',
+      '고준영',
+      '김도윤',
+      '김성훈',
+      '전효인(보안야간)',
+      '최 훈',
+      '권지상',
+    ],
+    [
+      '황강민',
+      '김준수',
+      '김성훈',
+      '유성연',
+      '이경훈',
+      '김영옥(보안야간)',
+      '강무진',
+    ],
+  ],
+}
+
+export default function OutingPage() {
+  const [dateRange, setDateRange] = useState()
+
+  return (
+    <div className='p-6'>
+      <div className='flex justify-between items-center mb-4'>
+        <h1 className='text-xl font-bold'>외출신청목록</h1>
+        <div className='flex gap-2'>
+          <button className='px-4 py-2 border rounded'>{'<'}</button>
+          <span className='font-medium'>{dateRange}</span>
+          <button className='px-4 py-2 border rounded'>{'>'}</button>
+          <button className='px-4 py-2 bg-blue-500 text-white rounded'>
+            오늘
+          </button>
+        </div>
+      </div>
+      <table className='table-auto w-full border-collapse border border-gray-300'>
+        <thead className='bg-gray-200'>
+          <tr>
+            <th className='border border-gray-300 px-4 py-2'>#</th>
+            {tableData.dates.map((date, index) => (
+              <th
+                key={index}
+                className='border border-gray-300 px-4 py-2'
+              >
+                {date} <br />
+                {tableData.confirmedCount[index]}명
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tableData.rows.map((row, rowIndex) => (
+            <tr
+              key={rowIndex}
+              className='text-center'
+            >
+              <td className='border border-gray-300 px-4 py-2'>
+                {rowIndex + 1}
+              </td>
+              {row.map((cell, cellIndex) => (
+                <td
+                  key={cellIndex}
+                  className='border border-gray-300 px-4 py-2'
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+\n
 ==== FILE: ./app/api/auth/route.ts ====
 // app/api/auth/route.ts
 import { NextResponse } from 'next/server'
@@ -140,8 +961,7 @@ export async function POST() {
 ==== FILE: ./app/api/register/route.ts ====
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-
-const users: { id: string; password: string }[] = [] // 임시 저장소
+import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
   const { id, password, confirmPassword } = await request.json()
@@ -159,18 +979,251 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  if (users.some((user) => user.id === id)) {
+
+  // 중복 확인
+  const existingUser = await prisma.user.findUnique({ where: { username: id } })
+  if (existingUser) {
     return NextResponse.json(
       { error: 'User ID already exists' },
       { status: 400 }
     )
   }
 
-  // 비밀번호 해싱 및 저장
+  // 비밀번호 해싱 및 데이터 저장
   const hashedPassword = await bcrypt.hash(password, 10)
-  users.push({ id, password: hashedPassword })
+  await prisma.user.create({
+    data: { username: id, password: hashedPassword },
+  })
 
   return NextResponse.json({ message: 'User registered successfully' })
+}
+\n
+==== FILE: ./app/api/applications/route.ts ====
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+
+    // Extract query parameters
+    const applicationType = searchParams.get('applicationType') // Filter by application type
+    const startDate = searchParams.get('startDate') // Filter by range start date
+    const endDate = searchParams.get('endDate') // Filter by range end date
+    const page = parseInt(searchParams.get('page') || '1', 10) // Current page
+    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10) // Items per page
+
+    // Apply filters
+    const filters = {
+      ...(applicationType && { applicationType }),
+      ...(startDate &&
+        endDate && {
+          rangeStartDate: {
+            gte: new Date(startDate),
+          },
+          rangeEndDate: {
+            lte: new Date(endDate),
+          },
+        }),
+    }
+
+    // Fetch applications with filters and pagination
+    const applications = await prisma.application.findMany({
+      where: filters,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    // Get total count for pagination
+    const totalCount = await prisma.application.count({ where: filters })
+
+    return NextResponse.json({
+      applications,
+      pagination: {
+        total: totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+
+    const {
+      applicationTitle,
+      applicationType,
+      rangeStartDate,
+      rangeEndDate,
+      startDate,
+      endDate,
+      applicationLimit,
+      applicationApprove,
+    } = body
+
+    // Validate required fields
+    if (
+      !applicationTitle ||
+      !applicationType ||
+      !rangeStartDate ||
+      !rangeEndDate
+    ) {
+      return NextResponse.json(
+        { error: 'Required fields are missing' },
+        { status: 400 }
+      )
+    }
+
+    // Create application in the database
+    const application = await prisma.application.create({
+      data: {
+        applicationTitle,
+        applicationType,
+        rangeStartDate: new Date(rangeStartDate),
+        rangeEndDate: new Date(rangeEndDate),
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        applicationLimit: applicationLimit || null,
+        applicationApprove: applicationApprove ?? null,
+      },
+    })
+
+    return NextResponse.json({ application })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+  }
+}
+\n
+==== FILE: ./app/api/protected/route.ts ====
+import { NextResponse } from 'next/server'
+import { verifyToken } from '@/lib/jwt'
+
+export async function GET(request: Request) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+
+  if (!token || !verifyToken(token)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  return NextResponse.json({ message: 'Access granted' })
+}
+\n
+==== FILE: ./app/api/login/route.ts ====
+import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+import { generateToken } from '@/lib/jwt'
+
+export async function POST(request: Request) {
+  const { id, password } = await request.json()
+
+  // 사용자 확인
+  const user = await prisma.user.findUnique({ where: { username: id } })
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  // 비밀번호 검증
+  const isPasswordValid = await bcrypt.compare(password, user.password)
+  if (!isPasswordValid) {
+    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+  }
+
+  // JWT 생성
+  const token = generateToken({ id: user.id, username: user.username })
+
+  // 응답 및 쿠키 설정
+  const response = NextResponse.json({ message: 'Login successful' })
+  response.cookies.set('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // 프로덕션 환경에서는 true
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7, // 일주일
+  })
+
+  return response
+}
+\n
+==== FILE: ./app/protected/page.tsx ====
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+export default function LoginPage() {
+  const [form, setForm] = useState({ id: '', password: '' })
+  const [error, setError] = useState('')
+  const router = useRouter()
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+
+    if (res.ok) {
+      router.push('/protected') // 로그인 성공 후 이동할 페이지
+    } else {
+      const data = await res.json()
+      setError(data.error || 'An error occurred')
+    }
+  }
+
+  return (
+    <div className='max-w-md mx-auto mt-10'>
+      <h1 className='text-2xl font-bold mb-4'>Login</h1>
+      {error && <p className='text-red-500 mb-4'>{error}</p>}
+      <form onSubmit={handleSubmit}>
+        <div className='mb-4'>
+          <label className='block mb-2'>ID</label>
+          <input
+            type='text'
+            name='id'
+            value={form.id}
+            onChange={handleChange}
+            className='w-full p-2 border rounded'
+            required
+          />
+        </div>
+        <div className='mb-4'>
+          <label className='block mb-2'>Password</label>
+          <input
+            type='password'
+            name='password'
+            value={form.password}
+            onChange={handleChange}
+            className='w-full p-2 border rounded'
+            required
+          />
+        </div>
+        <button
+          type='submit'
+          className='w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
+        >
+          Login
+        </button>
+      </form>
+    </div>
+  )
 }
 \n
 ==== FILE: ./app/page.tsx ====
@@ -286,16 +1339,261 @@ export default function Home() {
   --foreground: #171717;
 }
 
-@media (prefers-color-scheme: dark) {
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+\n
+==== FILE: ./app/calendar.css ====
+.react-calendar {
+  width: 100%;
+  max-width: 100%;
+  background: white;
+  border: 1px solid #a0a096;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  line-height: 1.125em;
+}
+
+/* 태블릿 이상 (768px ~) */
+@media (min-width: 768px) {
+  .react-calendar {
+    line-height: 1.5em; /* 태블릿용 line-height */
+  }
+}
+
+/* 데스크톱 이상 (1024px ~) */
+@media (min-width: 1024px) {
+  .react-calendar {
+    line-height: 1.75em; /* 데스크톱용 line-height */
+  }
+}
+
+.react-calendar--doubleView {
+  width: 700px;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer {
+  display: flex;
+  margin: -0.5em;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer > * {
+  width: 50%;
+  margin: 0.5em;
+}
+
+.react-calendar,
+.react-calendar *,
+.react-calendar *:before,
+.react-calendar *:after {
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.react-calendar button {
+  margin: 0;
+  border: 0;
+  outline: none;
+}
+
+.react-calendar button:enabled:hover {
+  cursor: pointer;
+}
+
+.react-calendar__navigation {
+  display: flex;
+  height: 44px;
+  margin-bottom: 1em;
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+}
+
+.react-calendar__navigation button:disabled {
+  background-color: #f0f0f0;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background-color: #e6e6e6;
+}
+
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  font: inherit;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  padding: 0.5em;
+}
+
+.react-calendar__month-view__weekNumbers .react-calendar__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+.react-calendar__month-view__days__day--weekend {
+  color: #d10000;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth,
+.react-calendar__decade-view__years__year--neighboringDecade,
+.react-calendar__century-view__decades__decade--neighboringCentury {
+  color: #757575;
+}
+
+.react-calendar__year-view .react-calendar__tile,
+.react-calendar__decade-view .react-calendar__tile,
+.react-calendar__century-view .react-calendar__tile {
+  padding: 2em 0.5em;
+}
+
+.react-calendar__tile {
+  max-width: 100%;
+  padding: 10px 6.6667px;
+  background: none;
+  text-align: center;
+  font: inherit;
+  font-size: 0.833em;
+}
+
+.react-calendar__tile:disabled {
+  background-color: #f0f0f0;
+  color: #ababab;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth:disabled,
+.react-calendar__decade-view__years__year--neighboringDecade:disabled,
+.react-calendar__century-view__decades__decade--neighboringCentury:disabled {
+  color: #cdcdcd;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: #e6e6e6;
+}
+
+.react-calendar__tile--now {
+  background: #ffff76;
+}
+
+.react-calendar__tile--now:enabled:hover,
+.react-calendar__tile--now:enabled:focus {
+  background: #ffffa9;
+}
+
+.react-calendar__tile--hasActive {
+  background: #76baff;
+}
+
+.react-calendar__tile--hasActive:enabled:hover,
+.react-calendar__tile--hasActive:enabled:focus {
+  background: #a9d4ff;
+}
+
+.react-calendar__tile--active {
+  background: #006edc;
+  color: white;
+}
+
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background: #1087ff;
+}
+
+.react-calendar--selectRange .react-calendar__tile--hover {
+  background-color: #e6e6e6;
+}
+\n
+==== FILE: ./app/login/page.tsx ====
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+export default function LoginPage() {
+  const [form, setForm] = useState({ id: '', password: '' })
+  const [error, setError] = useState('')
+  const router = useRouter()
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+
+    const data = await res.json()
+
+    if (res.ok) {
+      localStorage.setItem('token', data.token) // JWT 저장
+      router.push('/protected') // 로그인 성공 후 이동할 페이지
+    } else {
+      setError(data.error || 'An error occurred')
+    }
+  }
+
+  return (
+    <div className='max-w-md mx-auto mt-10'>
+      <h1 className='text-2xl font-bold mb-4'>Login</h1>
+      {error && <p className='text-red-500 mb-4'>{error}</p>}
+      <form onSubmit={handleSubmit}>
+        <div className='mb-4'>
+          <label className='block mb-2'>ID</label>
+          <input
+            type='text'
+            name='id'
+            value={form.id}
+            onChange={handleChange}
+            className='w-full p-2 border rounded'
+            required
+          />
+        </div>
+        <div className='mb-4'>
+          <label className='block mb-2'>Password</label>
+          <input
+            type='password'
+            name='password'
+            value={form.password}
+            onChange={handleChange}
+            className='w-full p-2 border rounded'
+            required
+          />
+        </div>
+        <button
+          type='submit'
+          className='w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
+        >
+          Login
+        </button>
+      </form>
+    </div>
+  )
 }
 \n
