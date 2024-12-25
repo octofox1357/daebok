@@ -4,16 +4,17 @@ import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
+    // console.log('ssssss', await request.json())
     // 폼에서 전달된 데이터 구조 분해
-    const { username, password, confirmPassword, email, name, phone } =
+    const { username, password, confirmPassword, name, congregation } =
       await request.json()
 
     // 1) 기본 유효성 검사
-    if (!username || !password || !confirmPassword || !email) {
+    if (!username || !password || !confirmPassword) {
       return NextResponse.json(
         {
           error:
-            'username, password, confirmPassword, email은 필수 입력 항목입니다.',
+            'username, password, confirmPassword, email은 필수 입력 항목입니다.'
         },
         { status: 400 }
       )
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
 
     // 2) 중복된 username(아이디)인지 검사
     const existingUser = await prisma.user.findUnique({
-      where: { username },
+      where: { username }
     })
     if (existingUser) {
       return NextResponse.json(
@@ -41,14 +42,19 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(password, 10)
     await prisma.user.create({
       data: {
+        // username: '1',
+        // congregation: '1',
+        // password: '1',
+        // name: '1',
+        // role: '1',
+        // isActive: true,
         username,
+        congregation: congregation || '',
         password: hashedPassword,
-        email, // 추가 입력
         name: name || '',
-        phone, // 선택적 필드
         role: 'user', // 회원가입 시 기본 역할
-        isActive: true, // 회원가입 시 기본 활성 상태
-      },
+        isActive: true // 회원가입 시 기본 활성 상태
+      }
     })
 
     return NextResponse.json({ message: '회원가입이 완료되었습니다.' })
