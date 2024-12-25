@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
@@ -10,11 +11,10 @@ model User {
   id        Int     @id @default(autoincrement())
   username  String  @unique
   password  String
-  email     String  @default("")
   name      String  @default("")
-  phone     String?
-  role      String  @default("user") // user, admin, manager
+  role      String  @default("user") // user, manager, admin
   isActive  Boolean @default(true)
+  congregation String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   Outings Outing[]
@@ -41,9 +41,6 @@ model Outing {
   outingType             String
   outingDate             DateTime
   outingConfirmed        String
-  outingHospitalCategory String?
-  outingPlace            String
-  outingTime             String
   userId                 Int
   user                   User    @relation(fields: [userId], references: [id])
 }

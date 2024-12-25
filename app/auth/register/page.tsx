@@ -68,6 +68,7 @@ export default function RegisterPage() {
         setError(data.error || '회원가입 중 오류가 발생했습니다.')
       }
     } catch (err) {
+      console.error(err)
       setError('서버와 통신 중 오류가 발생했습니다.')
     }
   }
