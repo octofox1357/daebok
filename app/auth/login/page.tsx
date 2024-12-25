@@ -1,15 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
-export default function RegisterPage() {
-  const [form, setForm] = useState({
-    id: '',
-    password: '',
-    confirmPassword: '',
-  })
+export default function LoginPage() {
+  const [form, setForm] = useState({ id: '', password: '' })
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -19,9 +17,8 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess('')
 
-    const res = await fetch('/api/register', {
+    const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
@@ -30,8 +27,10 @@ export default function RegisterPage() {
     const data = await res.json()
 
     if (res.ok) {
-      setSuccess('User registered successfully!')
-      setForm({ id: '', password: '', confirmPassword: '' })
+      // JWT를 localStorage에 저장
+      localStorage.setItem('token', data.token)
+      // 로그인 성공 시 '/user/outing' 페이지로 이동
+      router.push('/user')
     } else {
       setError(data.error || 'An error occurred')
     }
@@ -39,9 +38,8 @@ export default function RegisterPage() {
 
   return (
     <div className='max-w-md mx-auto mt-10'>
-      <h1 className='text-2xl font-bold mb-4'>Register</h1>
+      <h1 className='text-2xl font-bold mb-4'>Login</h1>
       {error && <p className='text-red-500 mb-4'>{error}</p>}
-      {success && <p className='text-green-500 mb-4'>{success}</p>}
       <form onSubmit={handleSubmit}>
         <div className='mb-4'>
           <label className='block mb-2'>ID</label>
@@ -65,24 +63,23 @@ export default function RegisterPage() {
             required
           />
         </div>
-        <div className='mb-4'>
-          <label className='block mb-2'>Confirm Password</label>
-          <input
-            type='password'
-            name='confirmPassword'
-            value={form.confirmPassword}
-            onChange={handleChange}
-            className='w-full p-2 border rounded'
-            required
-          />
-        </div>
         <button
           type='submit'
           className='w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
         >
-          Register
+          Login
         </button>
       </form>
+
+      <div className='text-center mt-4'>
+        아직 계정이 없으신가요?{' '}
+        <Link
+          href='/auth/register'
+          className='text-blue-500 hover:underline'
+        >
+          회원가입
+        </Link>
+      </div>
     </div>
   )
 }

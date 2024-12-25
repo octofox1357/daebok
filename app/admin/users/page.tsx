@@ -30,6 +30,7 @@ export default function UserManagementPage() {
       setUsers(data)
       setLoading(false)
     } catch (error) {
+      console.error('Error deleting user:', error)
       setError('Failed to load users')
       setLoading(false)
     }

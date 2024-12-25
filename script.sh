@@ -45,7 +45,7 @@ output_file="$current_dir/app_content_output.txt"
 
 # 제외할 디렉토리 및 파일 목록
 excluded_dirs=("node_modules" ".next" "dist" "build" "out" ".git" ".svelte-kit" "epubs" "cache")
-excluded_files=("database.sqlite" "package-lock.json" "*.epub" "*.lockb" "*.png" "*.DS_Store" "*.sqlite" "*.jpg" "*.jpeg" "*.gif" "*.lock" "*.yaml" "*.yml")
+excluded_files=("database.sqlite" "data.json" "data2.json" "package-lock.json" "*.epub" "*.lockb" "*.png" "*.DS_Store" "*.sqlite" "*.jpg" "*.jpeg" "*.gif" "*.lock" "*.yaml" "*.yml")
 
 # 포함할 파일 확장자 설정
 include_exts=("*.ts" "*.tsx" "*.js" "*.jsx" "*.json" "*.css" "*.html" "*.md" "*.svelte")

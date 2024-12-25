@@ -16,7 +16,10 @@ model User {
   role      String  @default("user") // user, admin, manager
   isActive  Boolean @default(true)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt @default(now()) // 기본값 추가
+  updatedAt DateTime @updatedAt
+  Outings Outing[]
+  Vacations Vacation[]
+  NightShift NightShift[]
 }
 
 model Application {
@@ -28,7 +31,46 @@ model Application {
   startDate          DateTime?
   endDate            DateTime?
   applicationLimit   String?
-  applicationApprove Boolean? // 확정 여부
+  // applicationApprove Boolean? // 확정 여부
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+model Outing {
+  id                     Int      @id @default(autoincrement())
+  outingType             String
+  outingDate             DateTime
+  outingConfirmed        String
+  outingHospitalCategory String?
+  outingPlace            String
+  outingTime             String
+  userId                 Int
+  user                   User    @relation(fields: [userId], references: [id])
+}
+
+model Vacation {
+  id              Int       @id @default(autoincrement())
+  startDate       DateTime
+  endDate         DateTime
+  vacationType    String     // 휴가 종류 (정기휴가, 청원휴가 등)
+  vacationReason  String?    // 선택적 필드
+  vacationConfirmed  String?    // 승인여부 (신청, 확정, 취소)
+  userId       Int
+  user         User    @relation(fields: [userId], references: [id])
+}
+
+model NightShift {
+  id               Int      @id @default(autoincrement())
+  shift_date       DateTime
+  shift_type       Int      // 예: 0(선번), 1(후번)
+  origin_altnumber String?
+  cycle_seperate   Boolean?
+  userId Int
+  user  User @relation(fields: [userId], references: [id])
+}
+
+model Holiday {
+  id           Int      @id @default(autoincrement())
+  holiday_date DateTime
+  name         String
 }

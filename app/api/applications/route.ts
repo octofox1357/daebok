@@ -1,32 +1,33 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
 
-    // Extract query parameters
-    const applicationType = searchParams.get('applicationType') // Filter by application type
-    const startDate = searchParams.get('startDate') // Filter by range start date
-    const endDate = searchParams.get('endDate') // Filter by range end date
-    const page = parseInt(searchParams.get('page') || '1', 10) // Current page
-    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10) // Items per page
+    // 파라미터 추출
+    const applicationTypeQuery = searchParams.get('applicationType')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10)
 
-    // Apply filters
-    const filters = {
-      ...(applicationType && { applicationType }),
-      ...(startDate &&
-        endDate && {
-          rangeStartDate: {
-            gte: new Date(startDate),
-          },
-          rangeEndDate: {
-            lte: new Date(endDate),
-          },
-        }),
+    // 기본값: applicationType이 지정되지 않았다면 '외출'
+    const applicationType = applicationTypeQuery ?? '외출'
+
+    // **명시적 타입을 사용해보자**
+    const filters: Prisma.ApplicationWhereInput = {
+      applicationType,
     }
 
-    // Fetch applications with filters and pagination
+    // startDate, endDate가 모두 존재하면 rangeStartDate, rangeEndDate 조건 추가
+    if (startDate && endDate) {
+      filters.rangeStartDate = { gte: new Date(startDate) }
+      filters.rangeEndDate = { lte: new Date(endDate) }
+    }
+
+    // DB 조회
     const applications = await prisma.application.findMany({
       where: filters,
       skip: (page - 1) * pageSize,
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       },
     })
 
-    // Get total count for pagination
+    // 전체 개수
     const totalCount = await prisma.application.count({ where: filters })
 
     return NextResponse.json({
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       applicationApprove,
     } = body
 
-    // Validate required fields
+    // 필수 필드 검사
     if (
       !applicationTitle ||
       !applicationType ||
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create application in the database
+    // DB에 새 Application 레코드 생성
     const application = await prisma.application.create({
       data: {
         applicationTitle,
@@ -102,3 +103,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
   }
 }
+
