@@ -10,9 +10,8 @@ export default function RegisterPage() {
     username: '',
     password: '',
     confirmPassword: '',
-    email: '',
     name: '',
-    phone: '',
+    congregation: ''
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -30,12 +29,7 @@ export default function RegisterPage() {
     setSuccess('')
 
     // 필요한 입력값이 제대로 들어있나 체크 (프론트에서 1차 확인)
-    if (
-      !form.username ||
-      !form.password ||
-      !form.confirmPassword ||
-      !form.email
-    ) {
+    if (!form.username || !form.password || !form.confirmPassword) {
       setError('필수 입력 항목을 모두 입력해주세요.')
       return
     }
@@ -49,130 +43,113 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(form)
       })
 
       const data = await res.json()
+      console.log('sssddd', data)
 
       if (res.ok) {
         setSuccess('회원가입이 완료되었습니다!')
-        // 가입 완료 후 폼 초기화
         setForm({
           username: '',
           password: '',
           confirmPassword: '',
-          email: '',
-          name: '',
-          phone: '',
+          congregation: '',
+          name: ''
         })
       } else {
         setError(data.error || '회원가입 중 오류가 발생했습니다.')
       }
     } catch (err) {
+      console.error('확인', err)
       setError('서버와 통신 중 오류가 발생했습니다.')
     }
   }
 
   return (
-    <div className='max-w-md mx-auto mt-10'>
-      <h1 className='text-2xl font-bold mb-4'>회원가입</h1>
-      {error && <p className='text-red-500 mb-4'>{error}</p>}
-      {success && <p className='text-green-500 mb-4'>{success}</p>}
+    <div className="max-w-md mx-auto mt-10">
+      <h1 className="text-2xl font-bold mb-4">회원가입</h1>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      {success && <p className="text-green-500 mb-4">{success}</p>}
 
       <form onSubmit={handleSubmit}>
         {/* ID(username) */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>아이디</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">아이디</label>
           <input
-            type='text'
-            name='username'
+            type="text"
+            name="username"
             value={form.username}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
+            className="w-full p-2 border rounded"
             required
           />
         </div>
 
         {/* 비밀번호 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>비밀번호</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">비밀번호</label>
           <input
-            type='password'
-            name='password'
+            type="password"
+            name="password"
             value={form.password}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
+            className="w-full p-2 border rounded"
             required
           />
         </div>
 
         {/* 비밀번호 확인 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>비밀번호 확인</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">비밀번호 확인</label>
           <input
-            type='password'
-            name='confirmPassword'
+            type="password"
+            name="confirmPassword"
             value={form.confirmPassword}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
+            className="w-full p-2 border rounded"
             required
           />
         </div>
 
-        {/* 이메일 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>이메일</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">회중</label>
           <input
-            type='email'
-            name='email'
-            value={form.email}
+            type="text"
+            name="congregation"
+            value={form.congregation}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
-            placeholder='example@domain.com'
+            className="w-full p-2 border rounded"
+            placeholder="회중"
             required
           />
         </div>
 
         {/* 이름 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>이름</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">이름</label>
           <input
-            type='text'
-            name='name'
+            type="text"
+            name="name"
             value={form.name}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
-          />
-        </div>
-
-        {/* 전화번호 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>전화번호</label>
-          <input
-            type='text'
-            name='phone'
-            value={form.phone}
-            onChange={handleChange}
-            className='w-full p-2 border rounded'
-            placeholder='010-XXXX-XXXX'
+            className="w-full p-2 border rounded"
           />
         </div>
 
         <button
-          type='submit'
-          className='w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
+          type="submit"
+          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
         >
           회원가입
         </button>
       </form>
 
       {/* 로그인 이동 링크 */}
-      <div className='text-center mt-4'>
+      <div className="text-center mt-4">
         이미 계정이 있으신가요?{' '}
-        <Link
-          href='/auth/login'
-          className='text-blue-500 hover:underline'
-        >
+        <Link href="/auth/login" className="text-blue-500 hover:underline">
           로그인
         </Link>
       </div>
@@ -569,30 +546,6 @@ return (
             placeholder='노출 마감일 선택'
           />
         </div>
-      </div>
-
-      {/* 신청 조건 (예: 최대 몇 명까지, 자격요건 등) */}
-      <div className='mb-4'>
-        <label className='block font-bold mb-2'>신청 조건</label>
-        <input
-          type='text'
-          name='applicationLimit'
-          value={formData.applicationLimit}
-          onChange={handleChange}
-          className='form-input w-full'
-        />
-      </div>
-
-      {/* 확정 여부 체크박스 */}
-      <div className='mb-4 flex items-center'>
-        <label className='block font-bold mr-4'>확정 여부</label>
-        <input
-          type='checkbox'
-          name='applicationApprove'
-          checked={formData.applicationApprove}
-          onChange={handleChange}
-          className='form-checkbox'
-        />
       </div>
 
       {/* 생성 버튼 */}
@@ -1411,6 +1364,141 @@ export default function UsersPage() {
   return <>usersPage</>
 }
 \n
+==== FILE: ./app/manager/layout.tsx ====
+'use client'
+
+import { useState } from 'react'
+import Header from './header'
+import Sidebar from './sidebar'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 사이드바 토글
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <div
+      className={`flex h-screen transition-all duration-300 ${
+        isOpen ? 'ml-64' : ''
+      }`}
+    >
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+      {/* 컨텐츠 영역 */}
+      <div className='flex flex-col flex-1'>
+        {/* 헤더 */}
+        <Header
+          toggleSidebar={toggleSidebar}
+          isOpen={isOpen}
+        />
+        {/* 메인 */}
+        <main className='p-6 bg-gray-100 flex-1'>{children}</main>
+      </div>
+    </div>
+  )
+}
+\n
+==== FILE: ./app/manager/users/page.tsx ====
+export default function UsersPage() {
+  return <>사용자, 인사 관리 페이지</>
+}
+\n
+==== FILE: ./app/manager/header.tsx ====
+'use client'
+
+import UserMenu from '@/lib/components/userMenu'
+import React from 'react'
+import { FiMenu, FiX } from 'react-icons/fi'
+
+type HeaderProps = {
+  toggleSidebar: () => void
+  isOpen: boolean
+}
+
+export default function Header({ toggleSidebar, isOpen }: HeaderProps) {
+  return (
+    <header
+      className={`bg-white border-b p-4 shadow-sm flex justify-between items-center transition-all duration-300`}
+    >
+      <button
+        onClick={toggleSidebar}
+        className='text-gray-800 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-gray-300'
+      >
+        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+      </button>
+      <h1 className='text-lg font-bold'>관리자</h1>
+
+      <UserMenu />
+    </header>
+  )
+}
+\n
+==== FILE: ./app/manager/sidebar.tsx ====
+'use client'
+
+import React from 'react'
+import { useRouter } from 'next/navigation'
+
+type SidebarProps = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const router = useRouter()
+
+  const menuItems = [
+    { label: '신청 관리', path: '/manager/applications' },
+    { label: '휴가 관리', path: '/manager/vacation' },
+    { label: '외출 관리', path: '/manager/outing' },
+    { label: '사용자 관리', path: '/manager/users' }
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsOpen(false)
+  }
+
+  return (
+    <aside
+      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white transform transition-transform duration-300 z-40 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      <div className='flex flex-col h-full'>
+        {/* 메뉴 목록 */}
+        <nav className='flex-1 p-4'>
+          <ul className='space-y-2'>
+            {menuItems.map(({ label, path }, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handleNavigation(path)}
+                  className='block w-full text-left px-4 py-2 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-600'
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* 하단 영역 - 필요시 추가 가능 */}
+      </div>
+    </aside>
+  )
+}
+\n
+==== FILE: ./app/manager/page.tsx ====
+export default function managerPage() {
+  return <>매니져</>
+}
+\n
 ==== FILE: ./app/vacation/page.tsx ====
 'use client'
 
@@ -1554,16 +1642,14 @@ import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
-    // 폼에서 전달된 데이터 구조 분해
-    const { username, password, confirmPassword, email, name, phone } =
+    const { username, password, confirmPassword, name, congregation } =
       await request.json()
 
-    // 1) 기본 유효성 검사
-    if (!username || !password || !confirmPassword || !email) {
+    if (!username || !password || !confirmPassword) {
       return NextResponse.json(
         {
           error:
-            'username, password, confirmPassword, email은 필수 입력 항목입니다.',
+            'username, password, confirmPassword, email은 필수 입력 항목입니다.'
         },
         { status: 400 }
       )
@@ -1576,9 +1662,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // 2) 중복된 username(아이디)인지 검사
     const existingUser = await prisma.user.findUnique({
-      where: { username },
+      where: { username }
     })
     if (existingUser) {
       return NextResponse.json(
@@ -1587,18 +1672,16 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3) 비밀번호 해싱 후 DB에 저장
     const hashedPassword = await bcrypt.hash(password, 10)
     await prisma.user.create({
       data: {
         username,
+        congregation: congregation || '',
         password: hashedPassword,
-        email, // 추가 입력
         name: name || '',
-        phone, // 선택적 필드
         role: 'user', // 회원가입 시 기본 역할
-        isActive: true, // 회원가입 시 기본 활성 상태
-      },
+        isActive: true // 회원가입 시 기본 활성 상태
+      }
     })
 
     return NextResponse.json({ message: '회원가입이 완료되었습니다.' })

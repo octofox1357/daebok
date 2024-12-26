@@ -40,6 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-daebok.db
 data.json
 data2.json
+prisma/daebok.db

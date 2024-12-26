@@ -4,12 +4,9 @@ import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
-    // console.log('ssssss', await request.json())
-    // 폼에서 전달된 데이터 구조 분해
     const { username, password, confirmPassword, name, congregation } =
       await request.json()
 
-    // 1) 기본 유효성 검사
     if (!username || !password || !confirmPassword) {
       return NextResponse.json(
         {
@@ -27,7 +24,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // 2) 중복된 username(아이디)인지 검사
     const existingUser = await prisma.user.findUnique({
       where: { username }
     })
@@ -38,16 +34,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3) 비밀번호 해싱 후 DB에 저장
     const hashedPassword = await bcrypt.hash(password, 10)
     await prisma.user.create({
       data: {
-        // username: '1',
-        // congregation: '1',
-        // password: '1',
-        // name: '1',
-        // role: '1',
-        // isActive: true,
         username,
         congregation: congregation || '',
         password: hashedPassword,
