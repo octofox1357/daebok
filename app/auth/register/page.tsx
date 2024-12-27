@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-// 이미 로그인한 유저를 위한 안내 링크 (예: 로그인 페이지로 이동)
 import Link from 'next/link'
+import { registerUser } from './action' // 서버 액션 import
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -27,7 +27,7 @@ export default function RegisterPage() {
     setError('')
     setSuccess('')
 
-    // 필요한 입력값이 제대로 들어있나 체크 (프론트에서 1차 확인)
+    // 클라이언트 측 유효성 검사
     if (!form.username || !form.password || !form.confirmPassword) {
       setError('필수 입력 항목을 모두 입력해주세요.')
       return
@@ -38,31 +38,18 @@ export default function RegisterPage() {
     }
 
     try {
-      // 회원가입 API 호출
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+      // 서버 액션 호출
+      const response = await registerUser(form)
+      setSuccess(response.message)
+      setForm({
+        username: '',
+        password: '',
+        confirmPassword: '',
+        name: '',
+        congregation: ''
       })
-
-      const data = await res.json()
-      console.log('sssddd', data)
-
-      if (res.ok) {
-        setSuccess('회원가입이 완료되었습니다!')
-        setForm({
-          username: '',
-          password: '',
-          confirmPassword: '',
-          congregation: '',
-          name: ''
-        })
-      } else {
-        setError(data.error || '회원가입 중 오류가 발생했습니다.')
-      }
     } catch (err) {
-      console.error('확인', err)
-      setError('서버와 통신 중 오류가 발생했습니다.')
+      setError(err.message || '회원가입 중 오류가 발생했습니다.')
     }
   }
 
@@ -71,7 +58,6 @@ export default function RegisterPage() {
       <h1 className="text-2xl font-bold mb-4">회원가입</h1>
       {error && <p className="text-red-500 mb-4">{error}</p>}
       {success && <p className="text-green-500 mb-4">{success}</p>}
-
       <form onSubmit={handleSubmit}>
         {/* ID(username) */}
         <div className="mb-4">
@@ -121,7 +107,6 @@ export default function RegisterPage() {
             onChange={handleChange}
             className="w-full p-2 border rounded"
             placeholder="회중"
-            required
           />
         </div>
 
