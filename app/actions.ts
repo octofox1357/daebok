@@ -4,7 +4,6 @@ import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { generateToken } from '@/lib/jwt'
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 
 export async function loginAction(formData: FormData) {
   // Extract data from FormData
@@ -39,7 +38,7 @@ export async function loginAction(formData: FormData) {
     sameSite: 'lax' // Optional: CSRF protection
   })
 
-  redirect('/user')
+  return { message: '로그인 성공' }
 }
 
 export async function logoutAction() {
@@ -49,19 +48,13 @@ export async function logoutAction() {
   })
 }
 
-export async function registerAction({
-  username,
-  password,
-  confirmPassword,
-  name,
-  congregation
-}: {
-  username: string
-  password: string
-  confirmPassword: string
-  name?: string
-  congregation?: string
-}) {
+export async function registerAction(formData: FormData) {
+  const username = formData.get('username') as string
+  const password = formData.get('password') as string
+  const confirmPassword = formData.get('confirmPassword') as string
+  const congregation = formData.get('congregation') as string
+  const name = formData.get('name') as string
+
   if (!username || !password || !confirmPassword) {
     throw new Error(
       'username, password, confirmPassword는 필수 입력 항목입니다.'

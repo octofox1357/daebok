@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { loginAction } from '@/app/actions'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  // const [form, setForm] = useState({ id: '', password: '' })
+  const router = useRouter()
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -14,7 +15,9 @@ export default function LoginPage() {
     setError('')
 
     try {
-      await loginAction(formData)
+      const res = await loginAction(formData)
+      alert(res.message)
+      router.push('/user')
     } catch (error) {
       if (error instanceof Error) {
         console.error(error.message)

@@ -57,18 +57,23 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-
-    const {
-      applicationTitle,
-      applicationType,
-      rangeStartDate,
-      rangeEndDate,
-      startDate,
-      endDate,
-      applicationLimit,
-      applicationApprove,
-    } = body
+    // const body = await request.json()
+    const data = await request.formData()
+    console.log(data)
+    const applicationTitle = data.get('applicationTitle') as string
+    const applicationType = data.get('applicationType') as string
+    const rangeStartDate = data.get('rangeStartDate') as string | number | Date
+    const rangeEndDate = data.get('rangeEndDate') as string | number | Date
+    const startDate = data.get('startDate') as string | number | Date
+    const endDate = data.get('endDate') as string | number | Date
+    const applicationLimit = data.get('applicationLimit') as
+      | string
+      | null
+      | undefined
+    const applicationApprove = data.get('applicationApprove') as
+      | boolean
+      | null
+      | undefined
 
     // 필수 필드 검사
     if (
@@ -84,7 +89,7 @@ export async function POST(request: Request) {
     }
 
     // DB에 새 Application 레코드 생성
-    const application = await prisma.application.create({
+    await prisma.application.create({
       data: {
         applicationTitle,
         applicationType,
@@ -93,11 +98,12 @@ export async function POST(request: Request) {
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
         applicationLimit: applicationLimit || null,
-        applicationApprove: applicationApprove ?? null,
-      },
+        applicationApprove: applicationApprove ?? null
+      }
     })
 
-    return NextResponse.json({ application })
+    // return NextResponse.json({ application })
+    return { message: '신청 생성 완료' }
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })

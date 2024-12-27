@@ -7,49 +7,20 @@ import { useRouter } from 'next/navigation'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const [form, setForm] = useState({
-    username: '',
-    password: '',
-    confirmPassword: '',
-    name: '',
-    congregation: ''
-  })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // 폼 입력값 핸들러
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
-  }
-
   // 회원가입 제출
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const formData = new FormData(e.currentTarget)
     e.preventDefault()
     setError('')
     setSuccess('')
 
-    // 클라이언트 측 유효성 검사
-    if (!form.username || !form.password || !form.confirmPassword) {
-      setError('필수 입력 항목을 모두 입력해주세요.')
-      return
-    }
-    if (form.password !== form.confirmPassword) {
-      setError('비밀번호가 일치하지 않습니다.')
-      return
-    }
-
     try {
-      const response = await registerAction(form)
+      const response = await registerAction(formData)
       alert(response.message)
       router.push('/auth/login')
-      setForm({
-        username: '',
-        password: '',
-        confirmPassword: '',
-        name: '',
-        congregation: ''
-      })
     } catch (err) {
       if (err instanceof Error) {
         console.error(err.message)
@@ -70,8 +41,6 @@ export default function RegisterPage() {
           <input
             type="text"
             name="username"
-            value={form.username}
-            onChange={handleChange}
             className="w-full p-2 border rounded"
             required
           />
@@ -83,8 +52,6 @@ export default function RegisterPage() {
           <input
             type="password"
             name="password"
-            value={form.password}
-            onChange={handleChange}
             className="w-full p-2 border rounded"
             required
           />
@@ -96,8 +63,6 @@ export default function RegisterPage() {
           <input
             type="password"
             name="confirmPassword"
-            value={form.confirmPassword}
-            onChange={handleChange}
             className="w-full p-2 border rounded"
             required
           />
@@ -108,8 +73,6 @@ export default function RegisterPage() {
           <input
             type="text"
             name="congregation"
-            value={form.congregation}
-            onChange={handleChange}
             className="w-full p-2 border rounded"
             placeholder="회중"
           />
@@ -121,8 +84,6 @@ export default function RegisterPage() {
           <input
             type="text"
             name="name"
-            value={form.name}
-            onChange={handleChange}
             className="w-full p-2 border rounded"
           />
         </div>
