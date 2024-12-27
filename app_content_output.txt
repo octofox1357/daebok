@@ -1,37 +1,2460 @@
 ==== FILE: ./app/auth/register/action.ts ====
+// app/auth/register/action.ts
+'use server'
+
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+
+export async function registerUser({
+  username,
+  password,
+  confirmPassword,
+  name,
+  congregation
+}: {
+  username: string
+  password: string
+  confirmPassword: string
+  name?: string
+  congregation?: string
+}) {
+  if (!username || !password || !confirmPassword) {
+    throw new Error(
+      'username, password, confirmPassword는 필수 입력 항목입니다.'
+    )
+  }
+
+  if (password !== confirmPassword) {
+    throw new Error('비밀번호가 일치하지 않습니다.')
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { username }
+  })
+
+  if (existingUser) {
+    throw new Error('이미 존재하는 아이디입니다.')
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10)
+
+  await prisma.user.create({
+    data: {
+      username,
+      congregation: congregation || '',
+      password: hashedPassword,
+      name: name || '',
+      role: 'user', // 기본 역할 설정
+      isActive: true // 기본 활성화
+    }
+  })
+
+  return { message: '회원가입이 완료되었습니다.' }
+}
+
 ==== FILE: ./app/auth/register/page.tsx ====
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { registerUser } from './action' // 서버 액션 import
+
+export default function RegisterPage() {
+  const [form, setForm] = useState({
+    username: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    congregation: ''
+  })
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  // 폼 입력값 핸들러
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // 회원가입 제출
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+
+    // 클라이언트 측 유효성 검사
+    if (!form.username || !form.password || !form.confirmPassword) {
+      setError('필수 입력 항목을 모두 입력해주세요.')
+      return
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('비밀번호가 일치하지 않습니다.')
+      return
+    }
+
+    try {
+      // 서버 액션 호출
+      const response = await registerUser(form)
+      setSuccess(response.message)
+      setForm({
+        username: '',
+        password: '',
+        confirmPassword: '',
+        name: '',
+        congregation: ''
+      })
+    } catch (err) {
+      setError(err.message || '회원가입 중 오류가 발생했습니다.')
+    }
+  }
+
+  return (
+    <div className="max-w-md mx-auto mt-10">
+      <h1 className="text-2xl font-bold mb-4">회원가입</h1>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      {success && <p className="text-green-500 mb-4">{success}</p>}
+      <form onSubmit={handleSubmit}>
+        {/* ID(username) */}
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">아이디</label>
+          <input
+            type="text"
+            name="username"
+            value={form.username}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        {/* 비밀번호 */}
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">비밀번호</label>
+          <input
+            type="password"
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        {/* 비밀번호 확인 */}
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">비밀번호 확인</label>
+          <input
+            type="password"
+            name="confirmPassword"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            required
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">회중</label>
+          <input
+            type="text"
+            name="congregation"
+            value={form.congregation}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+            placeholder="회중"
+          />
+        </div>
+
+        {/* 이름 */}
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">이름</label>
+          <input
+            type="text"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            className="w-full p-2 border rounded"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+        >
+          회원가입
+        </button>
+      </form>
+
+      {/* 로그인 이동 링크 */}
+      <div className="text-center mt-4">
+        이미 계정이 있으신가요?{' '}
+        <Link href="/auth/login" className="text-blue-500 hover:underline">
+          로그인
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/auth/login/action.ts ====
+// app/auth/login/action.ts
+'use server'
+
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+import { generateToken } from '@/lib/jwt'
+
+export async function loginUser({
+  id,
+  password
+}: {
+  id: string
+  password: string
+}) {
+  // 사용자 확인
+  const user = await prisma.user.findUnique({ where: { username: id } })
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  // 비밀번호 검증
+  const isPasswordValid = await bcrypt.compare(password, user.password)
+  if (!isPasswordValid) {
+    throw new Error('Invalid credentials')
+  }
+
+  // JWT 생성
+  const token = generateToken({ id: user.id, username: user.username })
+
+  // 서버 액션에서 쿠키 설정 가능
+  return {
+    token,
+    message: 'Login successful'
+  }
+}
+
 ==== FILE: ./app/auth/login/page.tsx ====
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+
+export default function LoginPage() {
+  const [form, setForm] = useState({ id: '', password: '' })
+  const [error, setError] = useState('')
+  const router = useRouter()
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form),
+    })
+
+    const data = await res.json()
+
+    if (res.ok) {
+      // JWT를 localStorage에 저장
+      localStorage.setItem('token', data.token)
+      // 로그인 성공 시 '/user/outing' 페이지로 이동
+      router.push('/user')
+    } else {
+      setError(data.error || 'An error occurred')
+    }
+  }
+
+  return (
+    <div className='max-w-md mx-auto mt-10'>
+      <h1 className='text-2xl font-bold mb-4'>Login</h1>
+      {error && <p className='text-red-500 mb-4'>{error}</p>}
+      <form onSubmit={handleSubmit}>
+        <div className='mb-4'>
+          <label className='block mb-2'>ID</label>
+          <input
+            type='text'
+            name='id'
+            value={form.id}
+            onChange={handleChange}
+            className='w-full p-2 border rounded'
+            required
+          />
+        </div>
+        <div className='mb-4'>
+          <label className='block mb-2'>Password</label>
+          <input
+            type='password'
+            name='password'
+            value={form.password}
+            onChange={handleChange}
+            className='w-full p-2 border rounded'
+            required
+          />
+        </div>
+        <button
+          type='submit'
+          className='w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
+        >
+          Login
+        </button>
+      </form>
+
+      <div className='text-center mt-4'>
+        아직 계정이 없으신가요?{' '}
+        <Link
+          href='/auth/register'
+          className='text-blue-500 hover:underline'
+        >
+          회원가입
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/admin/layout.tsx ====
+'use client'
+
+import { useState } from 'react'
+import Header from './header'
+import Sidebar from './sidebar'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 사이드바 토글
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <div
+      className={`flex h-screen transition-all duration-300 ${
+        isOpen ? 'ml-64' : ''
+      }`}
+    >
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+      {/* 컨텐츠 영역 */}
+      <div className='flex flex-col flex-1'>
+        {/* 헤더 */}
+        <Header
+          toggleSidebar={toggleSidebar}
+          isOpen={isOpen}
+        />
+        {/* 메인 */}
+        <main className='p-6 bg-gray-100 flex-1'>{children}</main>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/admin/users/page.tsx ====
+'use client'
+
+import React, { useState, useEffect } from 'react'
+
+type User = {
+  id: number
+  username: string
+  email: string
+  role: string
+  createdAt: string
+}
+
+export default function UserManagementPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  // 유저 데이터 가져오기
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users') // API 엔드포인트
+      if (!response.ok) {
+        throw new Error('Failed to fetch users')
+      }
+      const data: User[] = await response.json()
+      setUsers(data)
+      setLoading(false)
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      setError('Failed to load users')
+      setLoading(false)
+    }
+  }
+
+  // 유저 삭제
+  const handleDelete = async (id: number) => {
+    if (confirm('정말로 이 유저를 삭제하시겠습니까?')) {
+      try {
+        const response = await fetch(`/api/users/${id}`, { method: 'DELETE' })
+        if (!response.ok) {
+          throw new Error('Failed to delete user')
+        }
+        setUsers(users.filter((user) => user.id !== id))
+        alert('유저가 성공적으로 삭제되었습니다.')
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert('유저 삭제 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+  if (loading) return <p>Loading...</p>
+  if (error) return <p className='text-red-500'>{error}</p>
+
+  return (
+    <div className='max-w-6xl mx-auto p-6'>
+      <h1 className='text-2xl font-bold mb-6'>유저 관리</h1>
+
+      <table className='min-w-full table-auto border-collapse border border-gray-300'>
+        <thead>
+          <tr className='bg-gray-100'>
+            <th className='border border-gray-300 px-4 py-2'>#</th>
+            <th className='border border-gray-300 px-4 py-2'>유저명</th>
+            <th className='border border-gray-300 px-4 py-2'>이메일</th>
+            <th className='border border-gray-300 px-4 py-2'>권한</th>
+            <th className='border border-gray-300 px-4 py-2'>생성일</th>
+            <th className='border border-gray-300 px-4 py-2'>작업</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user, index) => (
+            <tr
+              key={user.id}
+              className='hover:bg-gray-50'
+            >
+              <td className='border border-gray-300 px-4 py-2 text-center'>
+                {index + 1}
+              </td>
+              <td className='border border-gray-300 px-4 py-2'>
+                {user.username}
+              </td>
+              <td className='border border-gray-300 px-4 py-2'>{user.email}</td>
+              <td className='border border-gray-300 px-4 py-2'>{user.role}</td>
+              <td className='border border-gray-300 px-4 py-2'>
+                {new Date(user.createdAt).toLocaleDateString()}
+              </td>
+              <td className='border border-gray-300 px-4 py-2 text-center'>
+                <button
+                  onClick={() => alert(`Edit user ${user.id}`)}
+                  className='mr-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600'
+                >
+                  편집
+                </button>
+                <button
+                  onClick={() => handleDelete(user.id)}
+                  className='bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600'
+                >
+                  삭제
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 ==== FILE: ./app/admin/applications/new/page.tsx ====
+'use client'
+
+import React, { useState } from 'react'
+
+export default function ApplicationCreation() {
+  const [formData, setFormData] = useState({
+    applicationTitle: '',
+    applicationType: '외출',
+    rangeStartDate: '',
+    rangeEndDate: '',
+    startDate: '',
+    endDate: '',
+    applicationLimit: '',
+    applicationApprove: false,
+  })
+
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+) => {
+  const { name } = e.target
+
+  if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox') {
+    const { checked } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: checked,
+    }))
+  } else {
+    // 그 외 (radio, text, select 등)
+    const { value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+}
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
+  try {
+    // POST /api/applications
+    const response = await fetch('/api/applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to create application')
+    }
+
+    const result = await response.json()
+    alert('신청 접수가 성공적으로 생성되었습니다!')
+    console.log('Response:', result)
+  } catch (error) {
+    console.error('Error submitting form:', error)
+    alert('신청 접수 생성 중 오류가 발생했습니다.')
+  }
+}
+
+return (
+  <div className='max-w-4xl mx-auto p-4'>
+    <h1 className='text-2xl font-bold mb-4'>신청접수 생성하기</h1>
+    <form
+      onSubmit={handleSubmit}
+      className='bg-white shadow-md rounded-lg p-6'
+    >
+      {/* 제목 */}
+      <div className='mb-4'>
+        <label className='block font-bold mb-2'>신청 제목</label>
+        <input
+          type='text'
+          name='applicationTitle'
+          value={formData.applicationTitle}
+          onChange={handleChange}
+          className='form-input w-full'
+          placeholder='제목을 입력하세요'
+          required
+        />
+      </div>
+
+      {/* 종류: 외출, 외박, 휴가 */}
+      <div className='mb-4'>
+        <label className='block font-bold mb-2'>종류</label>
+        <div className='flex space-x-4'>
+          {['외출', '외박', '휴가'].map((type) => (
+            <label
+              key={type}
+              className='flex items-center space-x-2'
+            >
+              <input
+                type='radio'
+                name='applicationType'
+                value={type}
+                checked={formData.applicationType === type}
+                onChange={handleChange}
+                className='form-radio'
+              />
+              <span>{type}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* 신청 기간 (rangeStartDate ~ rangeEndDate) */}
+      <div className='mb-4'>
+        <label className='block font-bold mb-2'>신청 기간</label>
+        <div className='grid grid-cols-2 gap-4'>
+          <input
+            type='date'
+            name='rangeStartDate'
+            value={formData.rangeStartDate}
+            onChange={handleChange}
+            className='form-input w-full'
+            required
+          />
+          <input
+            type='date'
+            name='rangeEndDate'
+            value={formData.rangeEndDate}
+            onChange={handleChange}
+            className='form-input w-full'
+            required
+          />
+        </div>
+      </div>
+
+      {/* 노출 기간 (startDate ~ endDate) */}
+      <div className='mb-4'>
+        <label className='block font-bold mb-2'>노출 기간</label>
+        <div className='grid grid-cols-2 gap-4'>
+          <input
+            type='date'
+            name='startDate'
+            value={formData.startDate}
+            onChange={handleChange}
+            className='form-input w-full'
+            placeholder='노출 시작일 선택'
+          />
+          <input
+            type='date'
+            name='endDate'
+            value={formData.endDate}
+            onChange={handleChange}
+            className='form-input w-full'
+            placeholder='노출 마감일 선택'
+          />
+        </div>
+      </div>
+
+      {/* 생성 버튼 */}
+      <button
+        type='submit'
+        className='bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600'
+      >
+        생성하기
+      </button>
+    </form>
+  </div>
+)
+}
+
 ==== FILE: ./app/admin/applications/page.tsx ====
+'use client'
+
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation' // Next.js Router 사용
+
+type Application = {
+  id: number
+  applicationTitle: string
+  applicationType: string
+  rangeStartDate: string
+  rangeEndDate: string
+  startDate?: string | null
+  endDate?: string | null
+  applicationLimit?: string | null
+  applicationApprove?: boolean | null
+  createdAt: string
+  updatedAt: string
+}
+
+type Pagination = {
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export default function AdminApplications() {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [totalPages, setTotalPages] = useState<number>(0)
+  const itemsPerPage = 10
+  const router = useRouter() // Next.js Router
+
+  useEffect(() => {
+    fetchApplications()
+  }, [currentPage])
+
+  const fetchApplications = async () => {
+    try {
+      const response = await fetch(
+        `/api/applications?page=${currentPage}&pageSize=${itemsPerPage}`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to fetch applications')
+      }
+      const data: { applications: Application[]; pagination: Pagination } =
+        await response.json()
+      setApplications(data.applications)
+      setTotalPages(data.pagination.totalPages)
+    } catch (error) {
+      console.error('Error fetching applications:', error)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleEdit = (id: number) => {
+    alert(`편집 페이지로 이동: 신청 ID ${id}`)
+  }
+
+  const navigateToNew = () => {
+    router.push('/admin/applications/new') // 새 페이지로 이동
+  }
+
+  return (
+    <div className='max-w-6xl mx-auto p-6'>
+      <h1 className='text-2xl font-bold mb-6'>접수관리</h1>
+      <div className='flex justify-between items-center mb-4'>
+        <h2 className='text-lg font-semibold'>접수목록</h2>
+        <button
+          onClick={navigateToNew}
+          className='bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600'
+        >
+          + 접수생성
+        </button>
+      </div>
+
+      <div className='overflow-x-auto'>
+        <table className='min-w-full table-auto border-collapse border border-gray-200'>
+          <thead>
+            <tr className='bg-gray-100'>
+              <th className='border border-gray-300 px-4 py-2'>제목</th>
+              <th className='border border-gray-300 px-4 py-2'>종류</th>
+              <th className='border border-gray-300 px-4 py-2'>시작일</th>
+              <th className='border border-gray-300 px-4 py-2'>마감일</th>
+              <th className='border border-gray-300 px-4 py-2'>제어</th>
+            </tr>
+          </thead>
+          <tbody>
+            {applications.map((application) => (
+              <tr
+                key={application.id}
+                className='hover:bg-gray-50'
+              >
+                <td className='border border-gray-300 px-4 py-2'>
+                  {application.applicationTitle}
+                </td>
+                <td className='border border-gray-300 px-4 py-2'>
+                  {application.applicationType}
+                </td>
+                <td className='border border-gray-300 px-4 py-2'>
+                  {new Date(application.rangeStartDate).toLocaleDateString()}
+                </td>
+                <td className='border border-gray-300 px-4 py-2'>
+                  {new Date(application.rangeEndDate).toLocaleDateString()}
+                </td>
+                <td className='border border-gray-300 px-4 py-2 text-center'>
+                  <button
+                    onClick={() => handleEdit(application.id)}
+                    className='bg-gray-400 text-white px-4 py-1 rounded hover:bg-gray-500'
+                  >
+                    편집
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 페이지네이션 */}
+      <div className='flex justify-center mt-6'>
+        <nav>
+          <ul className='flex space-x-2'>
+            {Array.from({ length: totalPages }, (_, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handlePageChange(index + 1)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === index + 1
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/admin/header.tsx ====
+'use client'
+
+import UserMenu from '@/lib/components/userMenu'
+import React from 'react'
+import { FiMenu, FiX } from 'react-icons/fi'
+
+type HeaderProps = {
+  toggleSidebar: () => void
+  isOpen: boolean
+}
+
+export default function Header({ toggleSidebar, isOpen }: HeaderProps) {
+  return (
+    <header
+      className={`bg-white border-b p-4 shadow-sm flex justify-between items-center transition-all duration-300`}
+    >
+      <button
+        onClick={toggleSidebar}
+        className='text-gray-800 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-gray-300'
+      >
+        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+      </button>
+      <h1 className='text-lg font-bold'>관리자</h1>
+
+      <UserMenu />
+    </header>
+  )
+}
+
 ==== FILE: ./app/admin/sidebar.tsx ====
+'use client'
+
+import React from 'react'
+import { useRouter } from 'next/navigation'
+
+type SidebarProps = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const router = useRouter()
+
+  const menuItems = [
+    { label: '신청 관리', path: '/admin/applications' },
+    { label: '휴가 관리', path: '/admin/vacation' },
+    { label: '외출 관리', path: '/admin/outing' },
+    { label: '사용자 관리', path: '/admin/users' },
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsOpen(false)
+  }
+
+  return (
+    <aside
+      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white transform transition-transform duration-300 z-40 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      <div className='flex flex-col h-full'>
+        {/* 메뉴 목록 */}
+        <nav className='flex-1 p-4'>
+          <ul className='space-y-2'>
+            {menuItems.map(({ label, path }, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handleNavigation(path)}
+                  className='block w-full text-left px-4 py-2 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-600'
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* 하단 영역 - 필요시 추가 가능 */}
+      </div>
+    </aside>
+  )
+}
+
 ==== FILE: ./app/admin/page.tsx ====
+export default function AdminPage() {
+  return <>Admin Page</>
+}
+
 ==== FILE: ./app/user/layout.tsx ====
+'use client'
+
+import { useState } from 'react'
+import UserHeader from './header'
+import UserSidebar from './sidebar'
+
+export default function UserLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 사이드바 토글
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <div
+      className={`flex h-screen transition-all duration-300 ${
+        isOpen ? 'ml-64' : ''
+      }`}
+    >
+      {/* 사이드바 */}
+      <UserSidebar
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+
+      {/* 컨텐츠 영역 */}
+      <div className='flex flex-col flex-1'>
+        {/* 헤더 */}
+        <UserHeader
+          toggleSidebar={toggleSidebar}
+          isOpen={isOpen}
+        />
+
+        {/* 메인 콘텐츠 */}
+        <main className='p-6 bg-gray-100 flex-1'>{children}</main>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/user/applications/applicationRow.tsx ====
+import React, { useState } from 'react'
+import Calendar from 'react-calendar'
+import 'react-calendar/dist/Calendar.css'
+import { createPortal } from 'react-dom'
+import { Application } from './types'
+import { Value } from 'react-calendar/src/shared/types.js'
+
+export default function ApplicationRow({
+  application,
+}: {
+  application: Application
+}) {
+  const [showModal, setShowModal] = useState(false) // 모달 표시 여부
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]) // 선택된 날짜들
+
+  const getStatusLabel = (rangeEndDate: string): string => {
+    const now = new Date()
+    const end = new Date(rangeEndDate)
+    return now > end ? '접수마감' : '신청'
+  }
+
+  const handleDateSelect = (value: Value) => {
+    if (value && !Array.isArray(value)) {
+      const isAlreadySelected = selectedDates.some(
+        (date) => date.toDateString() === value.toDateString()
+      )
+
+      if (isAlreadySelected) {
+        // 이미 선택된 날짜를 클릭하면 선택 해제
+        setSelectedDates((prev) =>
+          prev.filter((date) => date.toDateString() !== value.toDateString())
+        )
+      } else {
+        // 선택 조건 검사 (최대 3일, 주중 2일, 주말 1일 제한)
+        const weekdays = selectedDates.filter(
+          (date) => date.getDay() !== 0 && date.getDay() !== 6
+        ).length
+        const weekends = selectedDates.filter(
+          (date) => date.getDay() === 0 || date.getDay() === 6
+        ).length
+
+        const isWeekend = value.getDay() === 0 || value.getDay() === 6
+        if (selectedDates.length >= 3) {
+          alert('총 3일까지 선택 가능합니다.')
+          return
+        }
+        if (!isWeekend && weekdays >= 2) {
+          alert('주중은 최대 2일까지만 선택 가능합니다.')
+          return
+        }
+        if (isWeekend && weekends >= 1) {
+          alert('주말은 최대 1일까지만 선택 가능합니다.')
+          return
+        }
+
+        // 새로운 날짜 추가
+        setSelectedDates((prev) => [...prev, value])
+      }
+    }
+  }
+
+  const tileClassName = ({ date }: { date: Date }) => {
+    // 선택된 날짜에 파란색 배경과 하얀 텍스트 클래스 추가
+    if (
+      selectedDates.some(
+        (selectedDate) => selectedDate.toDateString() === date.toDateString()
+      )
+    ) {
+      return 'bg-blue-500 text-white' // 배경 파랑, 텍스트 하얀색
+    }
+    return ''
+  }
+
+  const status = getStatusLabel(application.rangeEndDate)
+
+  const Modal = () =>
+    showModal
+      ? createPortal(
+          <div className='fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50'>
+            <div className='bg-white p-6 rounded shadow-lg w-96'>
+              <h2 className='text-lg font-semibold mb-4'>날짜 선택</h2>
+              <Calendar
+                onChange={handleDateSelect} // 날짜 선택 이벤트
+                value={null} // 선택된 날짜를 보여주지 않음
+                minDate={new Date()} // 현재 날짜 이후만 선택 가능
+                tileClassName={tileClassName} // 선택된 날짜 스타일 적용
+                className='rounded-lg'
+              />
+              <div className='mt-4 text-gray-700 text-sm'>
+                <p>
+                  주중 2일 중{' '}
+                  <strong>
+                    {
+                      selectedDates.filter(
+                        (date) => date.getDay() !== 0 && date.getDay() !== 6
+                      ).length
+                    }
+                  </strong>
+                  일, 주말 1일 중{' '}
+                  <strong>
+                    {
+                      selectedDates.filter(
+                        (date) => date.getDay() === 0 || date.getDay() === 6
+                      ).length
+                    }
+                  </strong>
+                  일 선택됨
+                </p>
+              </div>
+              <div className='mt-4 flex justify-end'>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className='px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600'
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body // Render modal in the document body
+        )
+      : null
+
+  return (
+    <>
+      <tr className='hover:bg-gray-50'>
+        <td className='border border-gray-200 px-4 py-2'>
+          {application.applicationTitle}
+        </td>
+        <td className='border border-gray-200 px-4 py-2'>
+          {application.applicationType}
+        </td>
+        <td className='border border-gray-200 px-4 py-2'>
+          {new Date(application.rangeEndDate).toLocaleDateString()}
+        </td>
+        <td className='border border-gray-200 px-4 py-2'>
+          <button
+            onClick={() => status === '신청' && setShowModal(true)}
+            className={`px-4 py-1 rounded text-white ${
+              status === '신청' ? 'bg-blue-500' : 'bg-gray-400'
+            }`}
+          >
+            {status}
+          </button>
+        </td>
+        {selectedDates.length > 0 && (
+          <td className='border border-gray-200 px-4 py-2'>
+            {selectedDates.map((date) => date.toLocaleDateString()).join(', ')}
+          </td>
+        )}
+      </tr>
+      <Modal />
+    </>
+  )
+}
+
 ==== FILE: ./app/user/applications/types.ts ====
+// Application 모델 타입
+export type Application = {
+  id: number
+  applicationTitle: string
+  applicationType: string
+  rangeStartDate: string
+  rangeEndDate: string
+  applicationApprove?: boolean | null
+  createdAt: string
+  updatedAt: string
+}
+
 ==== FILE: ./app/user/applications/outing/page.tsx ====
+'use client'
+import React, { useState, useEffect } from 'react'
+
+// Application 모델 타입(필요한 필드만 선언)
+type Application = {
+  id: number
+  applicationTitle: string
+  applicationType: string
+  rangeStartDate: string
+  rangeEndDate: string
+  applicationApprove?: boolean | null
+  createdAt: string
+  updatedAt: string
+}
+
+export default function OutingApplication() {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+
+  // 페이지네이션이 필요하다면 state 추가
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  const totalPages = Math.ceil(applications.length / itemsPerPage)
+  const currentData = applications.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  )
+
+  // 컴포넌트 마운트 시 데이터 페치
+  useEffect(() => {
+    fetchApplications()
+  }, [])
+
+  const fetchApplications = async () => {
+    try {
+      // applicationType이 '외출'인 데이터만 필터링
+      const res = await fetch('/api/applications?applicationType=외출')
+      if (!res.ok) {
+        throw new Error('Failed to fetch applications')
+      }
+      const data = await res.json()
+      // data 구조: { applications: Application[], pagination: {...} }
+      setApplications(data.applications)
+      setLoading(false)
+    } catch (error) {
+      console.error(error)
+      setError('외출 신청 데이터를 불러오는 중 오류가 발생했습니다.')
+      setLoading(false)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  // 간단히 ‘마감/신청’ 상태 등을 표시하고 싶다면
+  // rangeEndDate 또는 applicationApprove 등을 사용해 로직 구현 가능
+  const getStatusLabel = (app: Application) => {
+    // 예: 오늘 날짜가 신청 마감일보다 지나면 '접수마감'
+    const now = new Date()
+    const end = new Date(app.rangeEndDate)
+    if (now > end) {
+      return '접수마감'
+    }
+    // 그 외엔 '신청'
+    return '신청'
+  }
+
+  if (loading) return <p className='p-4'>Loading...</p>
+  if (error) return <p className='p-4 text-red-500'>{error}</p>
+
+  return (
+    <div className='container mx-auto p-4'>
+      <h1 className='text-2xl font-bold mb-4'>외출 신청 목록</h1>
+
+      <div className='overflow-x-auto'>
+        <table className='min-w-full table-auto border-collapse border border-gray-200'>
+          <thead>
+            <tr className='bg-gray-100'>
+              <th className='border border-gray-200 px-4 py-2'>제목</th>
+              <th className='border border-gray-200 px-4 py-2'>종류</th>
+              <th className='border border-gray-200 px-4 py-2'>마감일</th>
+              <th className='border border-gray-200 px-4 py-2'>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentData.map((app) => {
+              const status = getStatusLabel(app)
+              return (
+                <tr
+                  key={app.id}
+                  className='hover:bg-gray-50'
+                >
+                  <td className='border border-gray-200 px-4 py-2'>
+                    {app.applicationTitle}
+                  </td>
+                  <td className='border border-gray-200 px-4 py-2'>
+                    {app.applicationType}
+                  </td>
+                  <td className='border border-gray-200 px-4 py-2'>
+                    {/* YYYY-MM-DD 형태로 표시 */}
+                    {new Date(app.rangeEndDate).toLocaleDateString()}
+                  </td>
+                  <td className='border border-gray-200 px-4 py-2'>
+                    <button
+                      className={`px-4 py-1 rounded text-white ${
+                        status === '신청' ? 'bg-blue-500' : 'bg-gray-400'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 페이지네이션 */}
+      <div className='flex justify-center mt-4'>
+        <nav>
+          <ul className='flex space-x-2'>
+            {Array.from({ length: totalPages }, (_, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handlePageChange(index + 1)}
+                  className={`px-3 py-1 rounded ${
+                    currentPage === index + 1
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200'
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/user/applications/page.tsx ====
+'use client'
+import React, { useState, useEffect } from 'react'
+import ApplicationRow from './applicationRow'
+import { Application } from './types'
+
+// 상수
+const ITEMS_PER_PAGE = 10
+
+// 페이지네이션 버튼 컴포넌트
+const Pagination = ({
+  totalPages,
+  currentPage,
+  onPageChange,
+}: {
+  totalPages: number
+  currentPage: number
+  onPageChange: (page: number) => void
+}) => {
+  return (
+    <nav>
+      <ul className='flex space-x-2'>
+        {Array.from({ length: totalPages }, (_, index) => (
+          <li key={index}>
+            <button
+              onClick={() => onPageChange(index + 1)}
+              className={`px-3 py-1 rounded ${
+                currentPage === index + 1
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200'
+              }`}
+            >
+              {index + 1}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+export default function OutingApplication() {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const totalPages = Math.ceil(applications.length / ITEMS_PER_PAGE)
+  const currentData = applications.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  useEffect(() => {
+    fetchApplications()
+  }, [])
+
+  const fetchApplications = async () => {
+    try {
+      const res = await fetch('/api/applications?applicationType=외출')
+      if (!res.ok) {
+        throw new Error('Failed to fetch applications')
+      }
+      const data = await res.json()
+      setApplications(data.applications)
+    } catch (err) {
+      console.error('Fetch Error:', err)
+      setError('외출 신청 데이터를 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  if (loading) return <p className='p-4'>Loading...</p>
+  if (error) return <p className='p-4 text-red-500'>{error}</p>
+
+  return (
+    <div className='container mx-auto p-4'>
+      <h1 className='text-2xl font-bold mb-4'>외출 신청 목록</h1>
+
+      <div className='overflow-x-auto'>
+        <table className='min-w-full table-auto border-collapse border border-gray-200'>
+          <thead>
+            <tr className='bg-gray-100'>
+              <th className='border border-gray-200 px-4 py-2'>제목</th>
+              <th className='border border-gray-200 px-4 py-2'>종류</th>
+              <th className='border border-gray-200 px-4 py-2'>마감일</th>
+              <th className='border border-gray-200 px-4 py-2'>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentData.map((app) => (
+              <ApplicationRow
+                key={app.id}
+                application={app}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className='flex justify-center mt-4'>
+        <Pagination
+          totalPages={totalPages}
+          currentPage={currentPage}
+          onPageChange={handlePageChange}
+        />
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/user/header.tsx ====
+'use client'
+
+import React from 'react'
+import { FiMenu, FiX } from 'react-icons/fi'
+import UserMenu from '@/lib/components/userMenu'
+
+type HeaderProps = {
+  toggleSidebar: () => void
+  isOpen: boolean
+}
+
+export default function UserHeader({ toggleSidebar, isOpen }: HeaderProps) {
+  return (
+    <header className='bg-white border-b p-4 shadow-sm flex justify-between items-center transition-all duration-300'>
+      {/* 사이드바 토글 버튼 */}
+      <button
+        onClick={toggleSidebar}
+        className='text-gray-800 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-gray-300'
+      >
+        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+      </button>
+      {/* 헤더 제목 */}
+      <h1 className='text-lg font-bold'>대체복무</h1>
+      <UserMenu />
+    </header>
+  )
+}
+
 ==== FILE: ./app/user/sidebar.tsx ====
+'use client'
+
+import React from 'react'
+import { useRouter } from 'next/navigation'
+
+type SidebarProps = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function UserSidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const router = useRouter()
+
+  const menuItems = [
+    // 관리자와는 다른 메뉴 구성
+    { label: '나의 외출 현황', path: '/user/outing' },
+    { label: '외출 신청', path: '/user/outing/applications' },
+    { label: '나의 휴가 현황', path: '/user/vacation' },
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsOpen(false)
+  }
+
+  return (
+    <aside
+      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white transform 
+                  transition-transform duration-300 z-40 
+                  ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+    >
+      <div className='flex flex-col h-full'>
+        {/* 메뉴 */}
+        <nav className='flex-1 p-4'>
+          <ul className='space-y-2'>
+            {menuItems.map(({ label, path }, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handleNavigation(path)}
+                  className='block w-full text-left px-4 py-2 rounded 
+                             hover:bg-gray-700 transition-colors'
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </aside>
+  )
+}
+
 ==== FILE: ./app/user/page.tsx ====
+export default function UsersPage() {
+  return <>usersPage</>
+}
+
 ==== FILE: ./app/manager/layout.tsx ====
+'use client'
+
+import { useState } from 'react'
+import Header from './header'
+import Sidebar from './sidebar'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 사이드바 토글
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <div
+      className={`flex h-screen transition-all duration-300 ${
+        isOpen ? 'ml-64' : ''
+      }`}
+    >
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+      {/* 컨텐츠 영역 */}
+      <div className='flex flex-col flex-1'>
+        {/* 헤더 */}
+        <Header
+          toggleSidebar={toggleSidebar}
+          isOpen={isOpen}
+        />
+        {/* 메인 */}
+        <main className='p-6 bg-gray-100 flex-1'>{children}</main>
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/manager/users/page.tsx ====
+'use client'
+
+import React, { useState, useEffect } from 'react'
+
+type User = {
+  id: number
+  username: string
+  email: string
+  role: string
+  createdAt: string
+}
+
+export default function UserManagementPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+  const [filter, setFilter] = useState({ username: '', role: '' })
+  const [roleChanges, setRoleChanges] = useState<
+    { id: number; role: string }[]
+  >([])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  useEffect(() => {
+    applyFilters()
+  }, [filter, users])
+
+  // 유저 데이터 가져오기
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users') // API 엔드포인트
+      if (!response.ok) {
+        throw new Error('Failed to fetch users')
+      }
+      const data: User[] = await response.json()
+      setUsers(data)
+      setFilteredUsers(data)
+      setLoading(false)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      setError('Failed to load users')
+      setLoading(false)
+    }
+  }
+
+  // 필터 적용
+  const applyFilters = () => {
+    const { username, role } = filter
+    let filtered = users
+
+    if (username) {
+      filtered = filtered.filter((user) =>
+        user.username.toLowerCase().includes(username.toLowerCase())
+      )
+    }
+
+    if (role) {
+      filtered = filtered.filter((user) => user.role === role)
+    }
+
+    setFilteredUsers(filtered)
+  }
+
+  // 필터 핸들러
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target
+    setFilter((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // 권한 변경 핸들러
+  const handleRoleChange = (id: number, newRole: string) => {
+    setRoleChanges((prevChanges) => {
+      const existingChange = prevChanges.find((change) => change.id === id)
+      if (existingChange) {
+        return prevChanges.map((change) =>
+          change.id === id ? { ...change, role: newRole } : change
+        )
+      } else {
+        return [...prevChanges, { id, role: newRole }]
+      }
+    })
+    setFilteredUsers((prevUsers) =>
+      prevUsers.map((user) =>
+        user.id === id ? { ...user, role: newRole } : user
+      )
+    )
+  }
+
+  // 변경 사항 저장
+  const saveChanges = async () => {
+    try {
+      for (const change of roleChanges) {
+        const response = await fetch(`/api/users/${change.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: change.role })
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to update role for user ID ${change.id}`)
+        }
+      }
+      alert('변경 사항이 저장되었습니다.')
+      setRoleChanges([])
+    } catch (error) {
+      console.error('Error saving changes:', error)
+      alert('변경 사항 저장 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 유저 삭제
+  const handleDelete = async (id: number) => {
+    if (confirm('정말로 이 유저를 삭제하시겠습니까?')) {
+      try {
+        const response = await fetch(`/api/users/${id}`, { method: 'DELETE' })
+        if (!response.ok) {
+          throw new Error('Failed to delete user')
+        }
+        setUsers(users.filter((user) => user.id !== id))
+        alert('유저가 성공적으로 삭제되었습니다.')
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert('유저 삭제 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+  if (loading) return <p>Loading...</p>
+  if (error) return <p className="text-red-500">{error}</p>
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">유저 관리</h1>
+
+      {/* 필터링 섹션 */}
+      <div className="mb-4 flex space-x-4">
+        <input
+          type="text"
+          name="username"
+          value={filter.username}
+          onChange={handleFilterChange}
+          placeholder="유저명 검색"
+          className="p-2 border rounded w-1/3"
+        />
+        <select
+          name="role"
+          value={filter.role}
+          onChange={handleFilterChange}
+          className="p-2 border rounded w-1/3"
+        >
+          <option value="">모든 권한</option>
+          <option value="user">User</option>
+          <option value="manager">Manager</option>
+        </select>
+      </div>
+
+      <table className="min-w-full table-auto border-collapse border border-gray-300">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border border-gray-300 px-4 py-2">#</th>
+            <th className="border border-gray-300 px-4 py-2">유저명</th>
+            <th className="border border-gray-300 px-4 py-2">권한</th>
+            <th className="border border-gray-300 px-4 py-2">생성일</th>
+            <th className="border border-gray-300 px-4 py-2">작업</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.map((user, index) => (
+            <tr key={user.id} className="hover:bg-gray-50">
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {index + 1}
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                {user.username}
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                <select
+                  value={user.role}
+                  onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                  className="w-full p-1 border rounded"
+                >
+                  <option value="user">User</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                {new Date(user.createdAt).toLocaleDateString()}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                <button
+                  onClick={() => alert(`Edit user ${user.id}`)}
+                  className="mr-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
+                >
+                  편집
+                </button>
+                <button
+                  onClick={() => handleDelete(user.id)}
+                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
+                >
+                  삭제
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* 저장 버튼 */}
+      {roleChanges.length > 0 && (
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={saveChanges}
+            className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+          >
+            변경 사항 저장
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 ==== FILE: ./app/manager/header.tsx ====
+'use client'
+
+import UserMenu from '@/lib/components/userMenu'
+import React from 'react'
+import { FiMenu, FiX } from 'react-icons/fi'
+
+type HeaderProps = {
+  toggleSidebar: () => void
+  isOpen: boolean
+}
+
+export default function Header({ toggleSidebar, isOpen }: HeaderProps) {
+  return (
+    <header
+      className={`bg-white border-b p-4 shadow-sm flex justify-between items-center transition-all duration-300`}
+    >
+      <button
+        onClick={toggleSidebar}
+        className="text-gray-800 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
+      >
+        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+      </button>
+      <h1 className="text-lg font-bold">관리자</h1>
+      <UserMenu />
+    </header>
+  )
+}
+
 ==== FILE: ./app/manager/sidebar.tsx ====
+'use client'
+
+import React from 'react'
+import { useRouter } from 'next/navigation'
+
+type SidebarProps = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const router = useRouter()
+
+  const menuItems = [
+    { label: '신청 관리', path: '/manager/applications' },
+    { label: '휴가 관리', path: '/manager/vacation' },
+    { label: '외출 관리', path: '/manager/outing' },
+    { label: '사용자 관리', path: '/manager/users' }
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsOpen(false)
+  }
+
+  return (
+    <aside
+      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white transform transition-transform duration-300 z-40 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      <div className='flex flex-col h-full'>
+        {/* 메뉴 목록 */}
+        <nav className='flex-1 p-4'>
+          <ul className='space-y-2'>
+            {menuItems.map(({ label, path }, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handleNavigation(path)}
+                  className='block w-full text-left px-4 py-2 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-600'
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* 하단 영역 - 필요시 추가 가능 */}
+      </div>
+    </aside>
+  )
+}
+
 ==== FILE: ./app/manager/page.tsx ====
+export default function managerPage() {
+  return <>매니져</>
+}
+
 ==== FILE: ./app/vacation/page.tsx ====
+'use client'
+
+// import 'react-calendar/dist/Calendar.css'
+import '../calendar.css'
+import React, { useState, useEffect } from 'react'
+import Calendar from 'react-calendar'
+import { Value } from 'react-calendar/src/shared/types.js'
+
+// 더미 데이터
+const dummyData = [
+  {
+    date: '2024-12-06',
+    text: '[금일현황]\n(출발) 1명 (복귀) 0명\n정기외박 출발 - 1명 정찬',
+    color: 'red',
+  },
+  {
+    date: '2024-12-08',
+    text: '[금일현황]\n(출발) 0명 (복귀) 0명\n정기외박 - 1명 정찬',
+    color: 'red',
+  },
+  {
+    date: '2024-12-09',
+    text: '[금일현황]\n(출발) 0명 (복귀) 1명\n정기외박 복귀 - 1명 정찬',
+    color: 'blue',
+  },
+]
+
+export default function VacationPage() {
+  const [selectedDate, setSelectedDate] = useState<Value | null>(null)
+
+  useEffect(() => {
+    setSelectedDate(new Date())
+  }, [])
+
+  // 날짜별 커스터마이즈된 내용을 표시
+  const tileContent = ({ date, view }: { date: Date; view: string }) => {
+    if (view === 'month') {
+      const formattedDate = date.toISOString().split('T')[0]
+      const data = dummyData.find((item) => item.date === formattedDate)
+      if (data) {
+        return (
+          <div
+            style={{
+              backgroundColor: data.color,
+              color: 'white',
+              fontSize: '12px',
+              borderRadius: '5px',
+              padding: '2px',
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {data.text}
+          </div>
+        )
+      }
+    }
+    return null
+  }
+
+  return (
+    <div className='flex flex-col h-screen'>
+      <header className='bg-blue-500 text-white text-center py-4'>
+        <h1 className='text-2xl font-bold'>휴가 / 외박 현황</h1>
+      </header>
+      <main className='flex-1 flex justify-center items-center p-4'>
+        {selectedDate && (
+          <Calendar
+            onChange={(value) => setSelectedDate(value)}
+            value={selectedDate}
+            className='bg-white shadow-lg rounded-md w-full max-w-4xl p-2'
+            view='month' // 월 보기
+            minDetail='month' // 최소 상세 보기
+            maxDetail='month' // 최대 상세 보기
+            prev2Label={null} // 연도 이동 비활성화
+            next2Label={null}
+            tileContent={tileContent} // 각 타일에 커스터마이즈된 내용 표시
+          />
+        )}
+      </main>
+    </div>
+  )
+}
+
 ==== FILE: ./app/layout.tsx ====
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}
+
 ==== FILE: ./app/api/auth/logout/route.ts ====
+import { NextResponse } from 'next/server'
+
+export async function POST() {
+  // NextResponse를 사용하여 쿠키 삭제 및 리다이렉션 처리
+  const response = NextResponse.json({ message: '로그아웃 완료' })
+
+  // 쿠키 삭제 설정
+  response.cookies.set('token', '', {
+    maxAge: 0, // 즉시 만료
+    path: '/', // 쿠키의 적용 경로
+  })
+
+  return response
+}
+
 ==== FILE: ./app/api/auth/register/route.ts ====
+import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+
+export async function POST(request: Request) {
+  try {
+    const { username, password, confirmPassword, name, congregation } =
+      await request.json()
+
+    if (!username || !password || !confirmPassword) {
+      return NextResponse.json(
+        {
+          error:
+            'username, password, confirmPassword, email은 필수 입력 항목입니다.'
+        },
+        { status: 400 }
+      )
+    }
+
+    if (password !== confirmPassword) {
+      return NextResponse.json(
+        { error: '비밀번호가 일치하지 않습니다.' },
+        { status: 400 }
+      )
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { username }
+    })
+    if (existingUser) {
+      return NextResponse.json(
+        { error: '이미 존재하는 아이디입니다.' },
+        { status: 400 }
+      )
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10)
+    await prisma.user.create({
+      data: {
+        username,
+        congregation: congregation || '',
+        password: hashedPassword,
+        name: name || '',
+        role: 'user', // 회원가입 시 기본 역할
+        isActive: true // 회원가입 시 기본 활성 상태
+      }
+    })
+
+    return NextResponse.json({ message: '회원가입이 완료되었습니다.' })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json(
+      { error: '서버 에러가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}
+
 ==== FILE: ./app/api/auth/route.ts ====
+// app/api/auth/route.ts
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+  return NextResponse.json({ message: 'GET 메소드 호출 완료' })
+}
+
+export async function POST() {
+  // POST 요청 처리 로직
+  return NextResponse.json({ message: 'POST 메소드 호출 완료' })
+}
+
 ==== FILE: ./app/api/auth/login/route.ts ====
+import { NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+import { generateToken } from '@/lib/jwt'
+
+export async function POST(request: Request) {
+  const { id, password } = await request.json()
+
+  // 사용자 확인
+  const user = await prisma.user.findUnique({ where: { username: id } })
+  if (!user) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  // 비밀번호 검증
+  const isPasswordValid = await bcrypt.compare(password, user.password)
+  if (!isPasswordValid) {
+    return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+  }
+
+  // JWT 생성
+  const token = generateToken({ id: user.id, username: user.username })
+
+  // 응답 및 쿠키 설정
+  const response = NextResponse.json({ message: 'Login successful' })
+  response.cookies.set('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // 프로덕션 환경에서는 true
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7, // 일주일
+  })
+
+  return response
+}
+
 ==== FILE: ./app/api/users/route.ts ====
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma' // Prisma 클라이언트
+
+export async function GET() {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true
+      }
+    })
+    return NextResponse.json(users)
+  } catch (error) {
+    console.error('Error fetching users:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+
+    // 사용자 삭제
+    const deletedUser = await prisma.user.delete({
+      where: { id: Number(id) }
+    })
+
+    return NextResponse.json(deletedUser)
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    const { username, role, isActive } = await request.json()
+
+    // 사용자 업데이트
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        username,
+        role,
+        isActive
+      }
+    })
+
+    return NextResponse.json(updatedUser)
+  } catch (error) {
+    console.error('Error updating user:', error)
+    return NextResponse.json(
+      { error: 'Failed to update user' },
+      { status: 500 }
+    )
+  }
+}
+
 ==== FILE: ./app/api/users/[id]/route.ts ====
+import prisma from '@/lib/prisma'
+import { NextResponse } from 'next/server'
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    const deletedUser = await prisma.user.delete({
+      where: { id: Number(id) }
+    })
+    return NextResponse.json(deletedUser)
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
+}
+
 ==== FILE: ./app/api/applications/route.ts ====
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+
+    // 파라미터 추출
+    const applicationTypeQuery = searchParams.get('applicationType')
+    const startDate = searchParams.get('startDate')
+    const endDate = searchParams.get('endDate')
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const pageSize = parseInt(searchParams.get('pageSize') || '10', 10)
+
+    // 기본값: applicationType이 지정되지 않았다면 '외출'
+    const applicationType = applicationTypeQuery ?? '외출'
+
+    // **명시적 타입을 사용해보자**
+    const filters: Prisma.ApplicationWhereInput = {
+      applicationType,
+    }
+
+    // startDate, endDate가 모두 존재하면 rangeStartDate, rangeEndDate 조건 추가
+    if (startDate && endDate) {
+      filters.rangeStartDate = { gte: new Date(startDate) }
+      filters.rangeEndDate = { lte: new Date(endDate) }
+    }
+
+    // DB 조회
+    const applications = await prisma.application.findMany({
+      where: filters,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    // 전체 개수
+    const totalCount = await prisma.application.count({ where: filters })
+
+    return NextResponse.json({
+      applications,
+      pagination: {
+        total: totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      },
+    })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+
+    const {
+      applicationTitle,
+      applicationType,
+      rangeStartDate,
+      rangeEndDate,
+      startDate,
+      endDate,
+      applicationLimit,
+      applicationApprove,
+    } = body
+
+    // 필수 필드 검사
+    if (
+      !applicationTitle ||
+      !applicationType ||
+      !rangeStartDate ||
+      !rangeEndDate
+    ) {
+      return NextResponse.json(
+        { error: 'Required fields are missing' },
+        { status: 400 }
+      )
+    }
+
+    // DB에 새 Application 레코드 생성
+    const application = await prisma.application.create({
+      data: {
+        applicationTitle,
+        applicationType,
+        rangeStartDate: new Date(rangeStartDate),
+        rangeEndDate: new Date(rangeEndDate),
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+        applicationLimit: applicationLimit || null,
+        applicationApprove: applicationApprove ?? null,
+      },
+    })
+
+    return NextResponse.json({ application })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Something went wrong' }, { status: 500 })
+  }
+}
+
+
 ==== FILE: ./app/api/protected/route.ts ====
+import { NextResponse } from 'next/server'
+import { verifyToken } from '@/lib/jwt'
+
+export async function GET(request: Request) {
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+
+  if (!token || !verifyToken(token)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  return NextResponse.json({ message: 'Access granted' })
+}
+
 ==== FILE: ./app/page.tsx ====
+export default function Home() {
+  return <div>개발중...</div>
+}
+
 ==== FILE: ./app/globals.css ====
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* @media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+} */
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 ==== FILE: ./app/calendar.css ====
+.react-calendar {
+  width: 100%;
+  max-width: 100%;
+  background: white;
+  border: 1px solid #a0a096;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  line-height: 1.125em;
+}
+
+/* 태블릿 이상 (768px ~) */
+@media (min-width: 768px) {
+  .react-calendar {
+    line-height: 1.5em; /* 태블릿용 line-height */
+  }
+}
+
+/* 데스크톱 이상 (1024px ~) */
+@media (min-width: 1024px) {
+  .react-calendar {
+    line-height: 1.75em; /* 데스크톱용 line-height */
+  }
+}
+
+.react-calendar--doubleView {
+  width: 700px;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer {
+  display: flex;
+  margin: -0.5em;
+}
+
+.react-calendar--doubleView .react-calendar__viewContainer > * {
+  width: 50%;
+  margin: 0.5em;
+}
+
+.react-calendar,
+.react-calendar *,
+.react-calendar *:before,
+.react-calendar *:after {
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.react-calendar button {
+  margin: 0;
+  border: 0;
+  outline: none;
+}
+
+.react-calendar button:enabled:hover {
+  cursor: pointer;
+}
+
+.react-calendar__navigation {
+  display: flex;
+  height: 44px;
+  margin-bottom: 1em;
+}
+
+.react-calendar__navigation button {
+  min-width: 44px;
+  background: none;
+}
+
+.react-calendar__navigation button:disabled {
+  background-color: #f0f0f0;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+  background-color: #e6e6e6;
+}
+
+.react-calendar__month-view__weekdays {
+  text-align: center;
+  text-transform: uppercase;
+  font: inherit;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  padding: 0.5em;
+}
+
+.react-calendar__month-view__weekNumbers .react-calendar__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+.react-calendar__month-view__days__day--weekend {
+  color: #d10000;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth,
+.react-calendar__decade-view__years__year--neighboringDecade,
+.react-calendar__century-view__decades__decade--neighboringCentury {
+  color: #757575;
+}
+
+.react-calendar__year-view .react-calendar__tile,
+.react-calendar__decade-view .react-calendar__tile,
+.react-calendar__century-view .react-calendar__tile {
+  padding: 2em 0.5em;
+}
+
+.react-calendar__tile {
+  max-width: 100%;
+  padding: 10px 6.6667px;
+  background: none;
+  text-align: center;
+  font: inherit;
+  font-size: 0.833em;
+}
+
+.react-calendar__tile:disabled {
+  background-color: #f0f0f0;
+  color: #ababab;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth:disabled,
+.react-calendar__decade-view__years__year--neighboringDecade:disabled,
+.react-calendar__century-view__decades__decade--neighboringCentury:disabled {
+  color: #cdcdcd;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  background-color: #e6e6e6;
+}
+
+.react-calendar__tile--now {
+  background: #ffff76;
+}
+
+.react-calendar__tile--now:enabled:hover,
+.react-calendar__tile--now:enabled:focus {
+  background: #ffffa9;
+}
+
+.react-calendar__tile--hasActive {
+  background: #76baff;
+}
+
+.react-calendar__tile--hasActive:enabled:hover,
+.react-calendar__tile--hasActive:enabled:focus {
+  background: #a9d4ff;
+}
+
+.react-calendar__tile--active {
+  background: #006edc;
+  color: white;
+}
+
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background: #1087ff;
+}
+
+.react-calendar--selectRange .react-calendar__tile--hover {
+  background-color: #e6e6e6;
+}
+
