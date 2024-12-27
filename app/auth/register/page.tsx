@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { registerUser } from './action' // 서버 액션 import
+import { registerAction } from '@/app/actions'
+import { useRouter } from 'next/navigation'
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [form, setForm] = useState({
     username: '',
     password: '',
@@ -38,9 +40,9 @@ export default function RegisterPage() {
     }
 
     try {
-      // 서버 액션 호출
-      const response = await registerUser(form)
-      setSuccess(response.message)
+      const response = await registerAction(form)
+      alert(response.message)
+      router.push('/auth/login')
       setForm({
         username: '',
         password: '',
@@ -49,7 +51,10 @@ export default function RegisterPage() {
         congregation: ''
       })
     } catch (err) {
-      setError(err.message || '회원가입 중 오류가 발생했습니다.')
+      if (err instanceof Error) {
+        console.error(err.message)
+        setError(err.message || '회원가입 중 오류가 발생했습니다.')
+      }
     }
   }
 
