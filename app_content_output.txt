@@ -1,18 +1,71 @@
+==== FILE: ./app/auth/register/action.ts ====
+// app/auth/register/action.ts
+'use server'
+
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+
+export async function registerUser({
+  username,
+  password,
+  confirmPassword,
+  name,
+  congregation
+}: {
+  username: string
+  password: string
+  confirmPassword: string
+  name?: string
+  congregation?: string
+}) {
+  if (!username || !password || !confirmPassword) {
+    throw new Error(
+      'username, password, confirmPassword는 필수 입력 항목입니다.'
+    )
+  }
+
+  if (password !== confirmPassword) {
+    throw new Error('비밀번호가 일치하지 않습니다.')
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { username }
+  })
+
+  if (existingUser) {
+    throw new Error('이미 존재하는 아이디입니다.')
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10)
+
+  await prisma.user.create({
+    data: {
+      username,
+      congregation: congregation || '',
+      password: hashedPassword,
+      name: name || '',
+      role: 'user', // 기본 역할 설정
+      isActive: true // 기본 활성화
+    }
+  })
+
+  return { message: '회원가입이 완료되었습니다.' }
+}
+
 ==== FILE: ./app/auth/register/page.tsx ====
 'use client'
 
 import { useState } from 'react'
-// 이미 로그인한 유저를 위한 안내 링크 (예: 로그인 페이지로 이동)
 import Link from 'next/link'
+import { registerUser } from './action' // 서버 액션 import
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
     username: '',
     password: '',
     confirmPassword: '',
-    email: '',
     name: '',
-    phone: '',
+    congregation: ''
   })
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -29,13 +82,8 @@ export default function RegisterPage() {
     setError('')
     setSuccess('')
 
-    // 필요한 입력값이 제대로 들어있나 체크 (프론트에서 1차 확인)
-    if (
-      !form.username ||
-      !form.password ||
-      !form.confirmPassword ||
-      !form.email
-    ) {
+    // 클라이언트 측 유효성 검사
+    if (!form.username || !form.password || !form.confirmPassword) {
       setError('필수 입력 항목을 모두 입력해주세요.')
       return
     }
@@ -45,141 +93,146 @@ export default function RegisterPage() {
     }
 
     try {
-      // 회원가입 API 호출
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+      // 서버 액션 호출
+      const response = await registerUser(form)
+      setSuccess(response.message)
+      setForm({
+        username: '',
+        password: '',
+        confirmPassword: '',
+        name: '',
+        congregation: ''
       })
-
-      const data = await res.json()
-
-      if (res.ok) {
-        setSuccess('회원가입이 완료되었습니다!')
-        // 가입 완료 후 폼 초기화
-        setForm({
-          username: '',
-          password: '',
-          confirmPassword: '',
-          email: '',
-          name: '',
-          phone: '',
-        })
-      } else {
-        setError(data.error || '회원가입 중 오류가 발생했습니다.')
-      }
     } catch (err) {
-      setError('서버와 통신 중 오류가 발생했습니다.')
+      setError(err.message || '회원가입 중 오류가 발생했습니다.')
     }
   }
 
   return (
-    <div className='max-w-md mx-auto mt-10'>
-      <h1 className='text-2xl font-bold mb-4'>회원가입</h1>
-      {error && <p className='text-red-500 mb-4'>{error}</p>}
-      {success && <p className='text-green-500 mb-4'>{success}</p>}
-
+    <div className="max-w-md mx-auto mt-10">
+      <h1 className="text-2xl font-bold mb-4">회원가입</h1>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      {success && <p className="text-green-500 mb-4">{success}</p>}
       <form onSubmit={handleSubmit}>
         {/* ID(username) */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>아이디</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">아이디</label>
           <input
-            type='text'
-            name='username'
+            type="text"
+            name="username"
             value={form.username}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
+            className="w-full p-2 border rounded"
             required
           />
         </div>
 
         {/* 비밀번호 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>비밀번호</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">비밀번호</label>
           <input
-            type='password'
-            name='password'
+            type="password"
+            name="password"
             value={form.password}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
+            className="w-full p-2 border rounded"
             required
           />
         </div>
 
         {/* 비밀번호 확인 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>비밀번호 확인</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">비밀번호 확인</label>
           <input
-            type='password'
-            name='confirmPassword'
+            type="password"
+            name="confirmPassword"
             value={form.confirmPassword}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
+            className="w-full p-2 border rounded"
             required
           />
         </div>
 
-        {/* 이메일 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>이메일</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">회중</label>
           <input
-            type='email'
-            name='email'
-            value={form.email}
+            type="text"
+            name="congregation"
+            value={form.congregation}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
-            placeholder='example@domain.com'
-            required
+            className="w-full p-2 border rounded"
+            placeholder="회중"
           />
         </div>
 
         {/* 이름 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>이름</label>
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">이름</label>
           <input
-            type='text'
-            name='name'
+            type="text"
+            name="name"
             value={form.name}
             onChange={handleChange}
-            className='w-full p-2 border rounded'
-          />
-        </div>
-
-        {/* 전화번호 */}
-        <div className='mb-4'>
-          <label className='block mb-2 font-semibold'>전화번호</label>
-          <input
-            type='text'
-            name='phone'
-            value={form.phone}
-            onChange={handleChange}
-            className='w-full p-2 border rounded'
-            placeholder='010-XXXX-XXXX'
+            className="w-full p-2 border rounded"
           />
         </div>
 
         <button
-          type='submit'
-          className='w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600'
+          type="submit"
+          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
         >
           회원가입
         </button>
       </form>
 
       {/* 로그인 이동 링크 */}
-      <div className='text-center mt-4'>
+      <div className="text-center mt-4">
         이미 계정이 있으신가요?{' '}
-        <Link
-          href='/auth/login'
-          className='text-blue-500 hover:underline'
-        >
+        <Link href="/auth/login" className="text-blue-500 hover:underline">
           로그인
         </Link>
       </div>
     </div>
   )
 }
-\n
+
+==== FILE: ./app/auth/login/action.ts ====
+// app/auth/login/action.ts
+'use server'
+
+import bcrypt from 'bcryptjs'
+import prisma from '@/lib/prisma'
+import { generateToken } from '@/lib/jwt'
+
+export async function loginUser({
+  id,
+  password
+}: {
+  id: string
+  password: string
+}) {
+  // 사용자 확인
+  const user = await prisma.user.findUnique({ where: { username: id } })
+  if (!user) {
+    throw new Error('User not found')
+  }
+
+  // 비밀번호 검증
+  const isPasswordValid = await bcrypt.compare(password, user.password)
+  if (!isPasswordValid) {
+    throw new Error('Invalid credentials')
+  }
+
+  // JWT 생성
+  const token = generateToken({ id: user.id, username: user.username })
+
+  // 서버 액션에서 쿠키 설정 가능
+  return {
+    token,
+    message: 'Login successful'
+  }
+}
+
 ==== FILE: ./app/auth/login/page.tsx ====
 'use client'
 
@@ -266,7 +319,7 @@ export default function LoginPage() {
     </div>
   )
 }
-\n
+
 ==== FILE: ./app/admin/layout.tsx ====
 'use client'
 
@@ -306,7 +359,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-\n
+
 ==== FILE: ./app/admin/users/page.tsx ====
 'use client'
 
@@ -419,7 +472,7 @@ export default function UserManagementPage() {
     </div>
   )
 }
-\n
+
 ==== FILE: ./app/admin/applications/new/page.tsx ====
 'use client'
 
@@ -571,30 +624,6 @@ return (
         </div>
       </div>
 
-      {/* 신청 조건 (예: 최대 몇 명까지, 자격요건 등) */}
-      <div className='mb-4'>
-        <label className='block font-bold mb-2'>신청 조건</label>
-        <input
-          type='text'
-          name='applicationLimit'
-          value={formData.applicationLimit}
-          onChange={handleChange}
-          className='form-input w-full'
-        />
-      </div>
-
-      {/* 확정 여부 체크박스 */}
-      <div className='mb-4 flex items-center'>
-        <label className='block font-bold mr-4'>확정 여부</label>
-        <input
-          type='checkbox'
-          name='applicationApprove'
-          checked={formData.applicationApprove}
-          onChange={handleChange}
-          className='form-checkbox'
-        />
-      </div>
-
       {/* 생성 버튼 */}
       <button
         type='submit'
@@ -606,7 +635,7 @@ return (
   </div>
 )
 }
-\n
+
 ==== FILE: ./app/admin/applications/page.tsx ====
 'use client'
 
@@ -754,7 +783,7 @@ export default function AdminApplications() {
     </div>
   )
 }
-\n
+
 ==== FILE: ./app/admin/header.tsx ====
 'use client'
 
@@ -784,7 +813,7 @@ export default function Header({ toggleSidebar, isOpen }: HeaderProps) {
     </header>
   )
 }
-\n
+
 ==== FILE: ./app/admin/sidebar.tsx ====
 'use client'
 
@@ -839,12 +868,12 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     </aside>
   )
 }
-\n
+
 ==== FILE: ./app/admin/page.tsx ====
 export default function AdminPage() {
   return <>Admin Page</>
 }
-\n
+
 ==== FILE: ./app/user/layout.tsx ====
 'use client'
 
@@ -890,8 +919,8 @@ export default function UserLayout({
     </div>
   )
 }
-\n
-==== FILE: ./app/user/outing/applications/applicationRow.tsx ====
+
+==== FILE: ./app/user/applications/applicationRow.tsx ====
 import React, { useState } from 'react'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
@@ -1047,8 +1076,8 @@ export default function ApplicationRow({
     </>
   )
 }
-\n
-==== FILE: ./app/user/outing/applications/types.ts ====
+
+==== FILE: ./app/user/applications/types.ts ====
 // Application 모델 타입
 export type Application = {
   id: number
@@ -1060,124 +1089,8 @@ export type Application = {
   createdAt: string
   updatedAt: string
 }
-\n
-==== FILE: ./app/user/outing/applications/page.tsx ====
-'use client'
-import React, { useState, useEffect } from 'react'
-import ApplicationRow from './applicationRow'
-import { Application } from './types'
 
-// 상수
-const ITEMS_PER_PAGE = 10
-
-// 페이지네이션 버튼 컴포넌트
-const Pagination = ({
-  totalPages,
-  currentPage,
-  onPageChange,
-}: {
-  totalPages: number
-  currentPage: number
-  onPageChange: (page: number) => void
-}) => {
-  return (
-    <nav>
-      <ul className='flex space-x-2'>
-        {Array.from({ length: totalPages }, (_, index) => (
-          <li key={index}>
-            <button
-              onClick={() => onPageChange(index + 1)}
-              className={`px-3 py-1 rounded ${
-                currentPage === index + 1
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200'
-              }`}
-            >
-              {index + 1}
-            </button>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  )
-}
-
-export default function OutingApplication() {
-  const [applications, setApplications] = useState<Application[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [error, setError] = useState<string>('')
-  const [currentPage, setCurrentPage] = useState(1)
-
-  const totalPages = Math.ceil(applications.length / ITEMS_PER_PAGE)
-  const currentData = applications.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  )
-
-  useEffect(() => {
-    fetchApplications()
-  }, [])
-
-  const fetchApplications = async () => {
-    try {
-      const res = await fetch('/api/applications?applicationType=외출')
-      if (!res.ok) {
-        throw new Error('Failed to fetch applications')
-      }
-      const data = await res.json()
-      setApplications(data.applications)
-    } catch (err) {
-      console.error('Fetch Error:', err)
-      setError('외출 신청 데이터를 불러오는 중 오류가 발생했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-  }
-
-  if (loading) return <p className='p-4'>Loading...</p>
-  if (error) return <p className='p-4 text-red-500'>{error}</p>
-
-  return (
-    <div className='container mx-auto p-4'>
-      <h1 className='text-2xl font-bold mb-4'>외출 신청 목록</h1>
-
-      <div className='overflow-x-auto'>
-        <table className='min-w-full table-auto border-collapse border border-gray-200'>
-          <thead>
-            <tr className='bg-gray-100'>
-              <th className='border border-gray-200 px-4 py-2'>제목</th>
-              <th className='border border-gray-200 px-4 py-2'>종류</th>
-              <th className='border border-gray-200 px-4 py-2'>마감일</th>
-              <th className='border border-gray-200 px-4 py-2'>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentData.map((app) => (
-              <ApplicationRow
-                key={app.id}
-                application={app}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className='flex justify-center mt-4'>
-        <Pagination
-          totalPages={totalPages}
-          currentPage={currentPage}
-          onPageChange={handlePageChange}
-        />
-      </div>
-    </div>
-  )
-}
-\n
-==== FILE: ./app/user/outing/page.tsx ====
+==== FILE: ./app/user/applications/outing/page.tsx ====
 'use client'
 import React, { useState, useEffect } from 'react'
 
@@ -1322,7 +1235,123 @@ export default function OutingApplication() {
     </div>
   )
 }
-\n
+
+==== FILE: ./app/user/applications/page.tsx ====
+'use client'
+import React, { useState, useEffect } from 'react'
+import ApplicationRow from './applicationRow'
+import { Application } from './types'
+
+// 상수
+const ITEMS_PER_PAGE = 10
+
+// 페이지네이션 버튼 컴포넌트
+const Pagination = ({
+  totalPages,
+  currentPage,
+  onPageChange,
+}: {
+  totalPages: number
+  currentPage: number
+  onPageChange: (page: number) => void
+}) => {
+  return (
+    <nav>
+      <ul className='flex space-x-2'>
+        {Array.from({ length: totalPages }, (_, index) => (
+          <li key={index}>
+            <button
+              onClick={() => onPageChange(index + 1)}
+              className={`px-3 py-1 rounded ${
+                currentPage === index + 1
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200'
+              }`}
+            >
+              {index + 1}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}
+
+export default function OutingApplication() {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const totalPages = Math.ceil(applications.length / ITEMS_PER_PAGE)
+  const currentData = applications.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  useEffect(() => {
+    fetchApplications()
+  }, [])
+
+  const fetchApplications = async () => {
+    try {
+      const res = await fetch('/api/applications?applicationType=외출')
+      if (!res.ok) {
+        throw new Error('Failed to fetch applications')
+      }
+      const data = await res.json()
+      setApplications(data.applications)
+    } catch (err) {
+      console.error('Fetch Error:', err)
+      setError('외출 신청 데이터를 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  if (loading) return <p className='p-4'>Loading...</p>
+  if (error) return <p className='p-4 text-red-500'>{error}</p>
+
+  return (
+    <div className='container mx-auto p-4'>
+      <h1 className='text-2xl font-bold mb-4'>외출 신청 목록</h1>
+
+      <div className='overflow-x-auto'>
+        <table className='min-w-full table-auto border-collapse border border-gray-200'>
+          <thead>
+            <tr className='bg-gray-100'>
+              <th className='border border-gray-200 px-4 py-2'>제목</th>
+              <th className='border border-gray-200 px-4 py-2'>종류</th>
+              <th className='border border-gray-200 px-4 py-2'>마감일</th>
+              <th className='border border-gray-200 px-4 py-2'>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentData.map((app) => (
+              <ApplicationRow
+                key={app.id}
+                application={app}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className='flex justify-center mt-4'>
+        <Pagination
+          totalPages={totalPages}
+          currentPage={currentPage}
+          onPageChange={handlePageChange}
+        />
+      </div>
+    </div>
+  )
+}
+
 ==== FILE: ./app/user/header.tsx ====
 'use client'
 
@@ -1351,7 +1380,7 @@ export default function UserHeader({ toggleSidebar, isOpen }: HeaderProps) {
     </header>
   )
 }
-\n
+
 ==== FILE: ./app/user/sidebar.tsx ====
 'use client'
 
@@ -1405,12 +1434,368 @@ export default function UserSidebar({ isOpen, setIsOpen }: SidebarProps) {
     </aside>
   )
 }
-\n
+
 ==== FILE: ./app/user/page.tsx ====
 export default function UsersPage() {
   return <>usersPage</>
 }
-\n
+
+==== FILE: ./app/manager/layout.tsx ====
+'use client'
+
+import { useState } from 'react'
+import Header from './header'
+import Sidebar from './sidebar'
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  // 사이드바 토글
+  const toggleSidebar = () => {
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <div
+      className={`flex h-screen transition-all duration-300 ${
+        isOpen ? 'ml-64' : ''
+      }`}
+    >
+      {/* 사이드바 */}
+      <Sidebar
+        isOpen={isOpen}
+        setIsOpen={setIsOpen}
+      />
+      {/* 컨텐츠 영역 */}
+      <div className='flex flex-col flex-1'>
+        {/* 헤더 */}
+        <Header
+          toggleSidebar={toggleSidebar}
+          isOpen={isOpen}
+        />
+        {/* 메인 */}
+        <main className='p-6 bg-gray-100 flex-1'>{children}</main>
+      </div>
+    </div>
+  )
+}
+
+==== FILE: ./app/manager/users/page.tsx ====
+'use client'
+
+import React, { useState, useEffect } from 'react'
+
+type User = {
+  id: number
+  username: string
+  email: string
+  role: string
+  createdAt: string
+}
+
+export default function UserManagementPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string>('')
+  const [filter, setFilter] = useState({ username: '', role: '' })
+  const [roleChanges, setRoleChanges] = useState<
+    { id: number; role: string }[]
+  >([])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  useEffect(() => {
+    applyFilters()
+  }, [filter, users])
+
+  // 유저 데이터 가져오기
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users') // API 엔드포인트
+      if (!response.ok) {
+        throw new Error('Failed to fetch users')
+      }
+      const data: User[] = await response.json()
+      setUsers(data)
+      setFilteredUsers(data)
+      setLoading(false)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      setError('Failed to load users')
+      setLoading(false)
+    }
+  }
+
+  // 필터 적용
+  const applyFilters = () => {
+    const { username, role } = filter
+    let filtered = users
+
+    if (username) {
+      filtered = filtered.filter((user) =>
+        user.username.toLowerCase().includes(username.toLowerCase())
+      )
+    }
+
+    if (role) {
+      filtered = filtered.filter((user) => user.role === role)
+    }
+
+    setFilteredUsers(filtered)
+  }
+
+  // 필터 핸들러
+  const handleFilterChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target
+    setFilter((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // 권한 변경 핸들러
+  const handleRoleChange = (id: number, newRole: string) => {
+    setRoleChanges((prevChanges) => {
+      const existingChange = prevChanges.find((change) => change.id === id)
+      if (existingChange) {
+        return prevChanges.map((change) =>
+          change.id === id ? { ...change, role: newRole } : change
+        )
+      } else {
+        return [...prevChanges, { id, role: newRole }]
+      }
+    })
+    setFilteredUsers((prevUsers) =>
+      prevUsers.map((user) =>
+        user.id === id ? { ...user, role: newRole } : user
+      )
+    )
+  }
+
+  // 변경 사항 저장
+  const saveChanges = async () => {
+    try {
+      for (const change of roleChanges) {
+        const response = await fetch(`/api/users/${change.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: change.role })
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to update role for user ID ${change.id}`)
+        }
+      }
+      alert('변경 사항이 저장되었습니다.')
+      setRoleChanges([])
+    } catch (error) {
+      console.error('Error saving changes:', error)
+      alert('변경 사항 저장 중 오류가 발생했습니다.')
+    }
+  }
+
+  // 유저 삭제
+  const handleDelete = async (id: number) => {
+    if (confirm('정말로 이 유저를 삭제하시겠습니까?')) {
+      try {
+        const response = await fetch(`/api/users/${id}`, { method: 'DELETE' })
+        if (!response.ok) {
+          throw new Error('Failed to delete user')
+        }
+        setUsers(users.filter((user) => user.id !== id))
+        alert('유저가 성공적으로 삭제되었습니다.')
+      } catch (error) {
+        console.error('Error deleting user:', error)
+        alert('유저 삭제 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+  if (loading) return <p>Loading...</p>
+  if (error) return <p className="text-red-500">{error}</p>
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">유저 관리</h1>
+
+      {/* 필터링 섹션 */}
+      <div className="mb-4 flex space-x-4">
+        <input
+          type="text"
+          name="username"
+          value={filter.username}
+          onChange={handleFilterChange}
+          placeholder="유저명 검색"
+          className="p-2 border rounded w-1/3"
+        />
+        <select
+          name="role"
+          value={filter.role}
+          onChange={handleFilterChange}
+          className="p-2 border rounded w-1/3"
+        >
+          <option value="">모든 권한</option>
+          <option value="user">User</option>
+          <option value="manager">Manager</option>
+        </select>
+      </div>
+
+      <table className="min-w-full table-auto border-collapse border border-gray-300">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="border border-gray-300 px-4 py-2">#</th>
+            <th className="border border-gray-300 px-4 py-2">유저명</th>
+            <th className="border border-gray-300 px-4 py-2">권한</th>
+            <th className="border border-gray-300 px-4 py-2">생성일</th>
+            <th className="border border-gray-300 px-4 py-2">작업</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.map((user, index) => (
+            <tr key={user.id} className="hover:bg-gray-50">
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {index + 1}
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                {user.username}
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                <select
+                  value={user.role}
+                  onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                  className="w-full p-1 border rounded"
+                >
+                  <option value="user">User</option>
+                  <option value="manager">Manager</option>
+                </select>
+              </td>
+              <td className="border border-gray-300 px-4 py-2">
+                {new Date(user.createdAt).toLocaleDateString()}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                <button
+                  onClick={() => alert(`Edit user ${user.id}`)}
+                  className="mr-2 bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
+                >
+                  편집
+                </button>
+                <button
+                  onClick={() => handleDelete(user.id)}
+                  className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600"
+                >
+                  삭제
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* 저장 버튼 */}
+      {roleChanges.length > 0 && (
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={saveChanges}
+            className="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"
+          >
+            변경 사항 저장
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+==== FILE: ./app/manager/header.tsx ====
+'use client'
+
+import UserMenu from '@/lib/components/userMenu'
+import React from 'react'
+import { FiMenu, FiX } from 'react-icons/fi'
+
+type HeaderProps = {
+  toggleSidebar: () => void
+  isOpen: boolean
+}
+
+export default function Header({ toggleSidebar, isOpen }: HeaderProps) {
+  return (
+    <header
+      className={`bg-white border-b p-4 shadow-sm flex justify-between items-center transition-all duration-300`}
+    >
+      <button
+        onClick={toggleSidebar}
+        className="text-gray-800 bg-white p-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
+      >
+        {isOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+      </button>
+      <h1 className="text-lg font-bold">관리자</h1>
+      <UserMenu />
+    </header>
+  )
+}
+
+==== FILE: ./app/manager/sidebar.tsx ====
+'use client'
+
+import React from 'react'
+import { useRouter } from 'next/navigation'
+
+type SidebarProps = {
+  isOpen: boolean
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+}
+
+export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
+  const router = useRouter()
+
+  const menuItems = [
+    { label: '신청 관리', path: '/manager/applications' },
+    { label: '휴가 관리', path: '/manager/vacation' },
+    { label: '외출 관리', path: '/manager/outing' },
+    { label: '사용자 관리', path: '/manager/users' }
+  ]
+
+  const handleNavigation = (path: string) => {
+    router.push(path)
+    setIsOpen(false)
+  }
+
+  return (
+    <aside
+      className={`fixed top-0 left-0 h-full w-64 bg-gray-800 text-white transform transition-transform duration-300 z-40 ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
+      <div className='flex flex-col h-full'>
+        {/* 메뉴 목록 */}
+        <nav className='flex-1 p-4'>
+          <ul className='space-y-2'>
+            {menuItems.map(({ label, path }, index) => (
+              <li key={index}>
+                <button
+                  onClick={() => handleNavigation(path)}
+                  className='block w-full text-left px-4 py-2 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-600'
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {/* 하단 영역 - 필요시 추가 가능 */}
+      </div>
+    </aside>
+  )
+}
+
+==== FILE: ./app/manager/page.tsx ====
+export default function managerPage() {
+  return <>매니져</>
+}
+
 ==== FILE: ./app/vacation/page.tsx ====
 'use client'
 
@@ -1494,7 +1879,7 @@ export default function VacationPage() {
     </div>
   )
 }
-\n
+
 ==== FILE: ./app/layout.tsx ====
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -1530,7 +1915,7 @@ export default function RootLayout({
     </html>
   );
 }
-\n
+
 ==== FILE: ./app/api/auth/logout/route.ts ====
 import { NextResponse } from 'next/server'
 
@@ -1546,7 +1931,7 @@ export async function POST() {
 
   return response
 }
-\n
+
 ==== FILE: ./app/api/auth/register/route.ts ====
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
@@ -1554,16 +1939,14 @@ import prisma from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
-    // 폼에서 전달된 데이터 구조 분해
-    const { username, password, confirmPassword, email, name, phone } =
+    const { username, password, confirmPassword, name, congregation } =
       await request.json()
 
-    // 1) 기본 유효성 검사
-    if (!username || !password || !confirmPassword || !email) {
+    if (!username || !password || !confirmPassword) {
       return NextResponse.json(
         {
           error:
-            'username, password, confirmPassword, email은 필수 입력 항목입니다.',
+            'username, password, confirmPassword, email은 필수 입력 항목입니다.'
         },
         { status: 400 }
       )
@@ -1576,9 +1959,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // 2) 중복된 username(아이디)인지 검사
     const existingUser = await prisma.user.findUnique({
-      where: { username },
+      where: { username }
     })
     if (existingUser) {
       return NextResponse.json(
@@ -1587,18 +1969,16 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3) 비밀번호 해싱 후 DB에 저장
     const hashedPassword = await bcrypt.hash(password, 10)
     await prisma.user.create({
       data: {
         username,
+        congregation: congregation || '',
         password: hashedPassword,
-        email, // 추가 입력
         name: name || '',
-        phone, // 선택적 필드
         role: 'user', // 회원가입 시 기본 역할
-        isActive: true, // 회원가입 시 기본 활성 상태
-      },
+        isActive: true // 회원가입 시 기본 활성 상태
+      }
     })
 
     return NextResponse.json({ message: '회원가입이 완료되었습니다.' })
@@ -1610,7 +1990,7 @@ export async function POST(request: Request) {
     )
   }
 }
-\n
+
 ==== FILE: ./app/api/auth/route.ts ====
 // app/api/auth/route.ts
 import { NextResponse } from 'next/server'
@@ -1623,7 +2003,7 @@ export async function POST() {
   // POST 요청 처리 로직
   return NextResponse.json({ message: 'POST 메소드 호출 완료' })
 }
-\n
+
 ==== FILE: ./app/api/auth/login/route.ts ====
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
@@ -1659,7 +2039,104 @@ export async function POST(request: Request) {
 
   return response
 }
-\n
+
+==== FILE: ./app/api/users/route.ts ====
+import { NextResponse } from 'next/server'
+import prisma from '@/lib/prisma' // Prisma 클라이언트
+
+export async function GET() {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true
+      }
+    })
+    return NextResponse.json(users)
+  } catch (error) {
+    console.error('Error fetching users:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+
+    // 사용자 삭제
+    const deletedUser = await prisma.user.delete({
+      where: { id: Number(id) }
+    })
+
+    return NextResponse.json(deletedUser)
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    const { username, role, isActive } = await request.json()
+
+    // 사용자 업데이트
+    const updatedUser = await prisma.user.update({
+      where: { id: Number(id) },
+      data: {
+        username,
+        role,
+        isActive
+      }
+    })
+
+    return NextResponse.json(updatedUser)
+  } catch (error) {
+    console.error('Error updating user:', error)
+    return NextResponse.json(
+      { error: 'Failed to update user' },
+      { status: 500 }
+    )
+  }
+}
+
+==== FILE: ./app/api/users/[id]/route.ts ====
+import prisma from '@/lib/prisma'
+import { NextResponse } from 'next/server'
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params
+    const deletedUser = await prisma.user.delete({
+      where: { id: Number(id) }
+    })
+    return NextResponse.json(deletedUser)
+  } catch (error) {
+    console.error('Error deleting user:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    )
+  }
+}
+
 ==== FILE: ./app/api/applications/route.ts ====
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
@@ -1767,7 +2244,7 @@ export async function POST(request: Request) {
   }
 }
 
-\n
+
 ==== FILE: ./app/api/protected/route.ts ====
 import { NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/jwt'
@@ -1781,12 +2258,12 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ message: 'Access granted' })
 }
-\n
+
 ==== FILE: ./app/page.tsx ====
 export default function Home() {
   return <div>개발중...</div>
 }
-\n
+
 ==== FILE: ./app/globals.css ====
 @tailwind base;
 @tailwind components;
@@ -1809,7 +2286,7 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
-\n
+
 ==== FILE: ./app/calendar.css ====
 .react-calendar {
   width: 100%;
@@ -1980,4 +2457,4 @@ body {
 .react-calendar--selectRange .react-calendar__tile--hover {
   background-color: #e6e6e6;
 }
-\n
+

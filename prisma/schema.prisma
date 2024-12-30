@@ -31,7 +31,7 @@ model Application {
   startDate          DateTime?
   endDate            DateTime?
   applicationLimit   String?
-  // applicationApprove Boolean? // 확정 여부
+  applicationApprove Boolean? // 확정 여부
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }

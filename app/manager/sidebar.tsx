@@ -12,10 +12,10 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const router = useRouter()
 
   const menuItems = [
-    { label: '신청 관리', path: '/admin/applications' },
-    { label: '휴가 관리', path: '/admin/vacation' },
-    { label: '외출 관리', path: '/admin/outing' },
-    { label: '사용자 관리', path: '/admin/users' },
+    { label: '신청 관리', path: '/manager/applications' },
+    { label: '휴가 관리', path: '/manager/vacation' },
+    { label: '외출 관리', path: '/manager/outing' },
+    { label: '사용자 관리', path: '/manager/users' }
   ]
 
   const handleNavigation = (path: string) => {
