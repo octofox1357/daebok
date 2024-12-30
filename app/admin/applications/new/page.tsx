@@ -11,6 +11,8 @@ export default function ApplicationCreation() {
     startDate: '',
     endDate: '',
     applicationLimit: '',
+    applicationWeekdayLimit: '',
+    applicationHolydayLimit: '',
     applicationApprove: false,
   })
 
@@ -147,6 +149,34 @@ return (
           />
         </div>
       </div>
+
+      {/* {평일, 휴일 신청일 수 선택} */}
+      <div className='mb-4'>
+        <label className='block font-bold mb-2'>
+          평일 및 휴일 선택 가능 일수
+        </label>
+        <div className='grid grid-cols-2 gap-4'>
+            <input
+              type='number'
+              name='applicationHolydayLimit'
+              value={formData.applicationHolydayLimit}
+              onChange={handleChange}
+              className='form-input w-full'
+              placeholder='평일'
+              required
+            />
+
+            <input
+              type='number'
+              name='applicationWeekdayLimit'
+              value={formData.applicationWeekdayLimit}
+              onChange={handleChange}
+              className='form-input w-full'
+              placeholder='휴일'
+              required
+            />
+          </div>
+        </div>
 
       {/* 생성 버튼 */}
       <button
