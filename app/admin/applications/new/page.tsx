@@ -3,6 +3,7 @@
 import React from 'react'
 
 export default function ApplicationCreation() {
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">신청접수 생성하기</h1>
@@ -11,7 +12,6 @@ export default function ApplicationCreation() {
         action={'/api/applications/'}
         className="bg-white shadow-md rounded-lg p-6"
       >
-        {/* 제목 */}
         <div className="mb-4">
           <label className="block font-bold mb-2">신청 제목</label>
           <input
@@ -24,7 +24,6 @@ export default function ApplicationCreation() {
           />
         </div>
 
-        {/* 종류: 외출, 외박, 휴가 */}
         <div className="mb-4">
           <label className="block font-bold mb-2">종류</label>
           <div className="flex space-x-4">
@@ -85,6 +84,26 @@ export default function ApplicationCreation() {
           </div>
         </div>
 
+        <div className="mb-4">
+          <label className="block font-bold mb-2">제한 사항</label>
+          <div className="grid grid-cols-2 gap-4">
+            <input
+              type="number"
+              name="weekDayLimit"
+              defaultValue=""
+              className="form-input w-full"
+              placeholder="핑일 외출 일수"
+            />
+            <input
+              type="number"
+              name="weekEndLimit"
+              defaultValue=""
+              className="form-input w-full"
+              placeholder="휴일 외출 일수"
+            />
+          </div>
+        </div>
+
         {/* 승인 여부 (체크박스 추가) */}
         <div className="mb-4">
           <label className="flex items-center">
@@ -98,7 +117,6 @@ export default function ApplicationCreation() {
           </label>
         </div>
 
-        {/* 생성 버튼 */}
         <button
           type="submit"
           className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600"
