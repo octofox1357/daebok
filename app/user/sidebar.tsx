@@ -14,8 +14,8 @@ export default function UserSidebar({ isOpen, setIsOpen }: SidebarProps) {
   const menuItems = [
     // 관리자와는 다른 메뉴 구성
     { label: '나의 외출 현황', path: '/user/outing' },
-    { label: '외출 신청', path: '/user/outing/applications' },
-    { label: '나의 휴가 현황', path: '/user/vacation' },
+    { label: '외출 신청', path: '/user/applications/outing' },
+    { label: '나의 휴가 현황', path: '/user/vacation' }
   ]
 
   const handleNavigation = (path: string) => {

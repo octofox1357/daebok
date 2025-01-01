@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
-import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
+import '../../../calendar.css'
+import Calendar from 'react-calendar'
 import { createPortal } from 'react-dom'
-import { Application } from './types'
+import { Application } from '../types'
 import { Value } from 'react-calendar/src/shared/types.js'
 
 export default function ApplicationRow({
-  application,
+  application
 }: {
   application: Application
 }) {
@@ -60,13 +61,13 @@ export default function ApplicationRow({
   }
 
   const tileClassName = ({ date }: { date: Date }) => {
-    // 선택된 날짜에 파란색 배경과 하얀 텍스트 클래스 추가
+    // 선택된 날짜에 파란색 배경과 하얀 텍스트 스타일을 적용
     if (
       selectedDates.some(
         (selectedDate) => selectedDate.toDateString() === date.toDateString()
       )
     ) {
-      return 'bg-blue-500 text-white' // 배경 파랑, 텍스트 하얀색
+      return 'bg-blue-500 text-white'
     }
     return ''
   }
@@ -76,17 +77,17 @@ export default function ApplicationRow({
   const Modal = () =>
     showModal
       ? createPortal(
-          <div className='fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50'>
-            <div className='bg-white p-6 rounded shadow-lg w-96'>
-              <h2 className='text-lg font-semibold mb-4'>날짜 선택</h2>
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded shadow-lg w-96">
+              <h2 className="text-lg font-semibold mb-4">날짜 선택</h2>
               <Calendar
-                onChange={handleDateSelect} // 날짜 선택 이벤트
-                value={null} // 선택된 날짜를 보여주지 않음
-                minDate={new Date()} // 현재 날짜 이후만 선택 가능
-                tileClassName={tileClassName} // 선택된 날짜 스타일 적용
-                className='rounded-lg'
+                onChange={handleDateSelect}
+                value={null}
+                minDate={new Date()}
+                tileClassName={tileClassName}
+                className="rounded-lg"
               />
-              <div className='mt-4 text-gray-700 text-sm'>
+              <div className="mt-4 text-gray-700 text-sm">
                 <p>
                   주중 2일 중{' '}
                   <strong>
@@ -106,34 +107,55 @@ export default function ApplicationRow({
                   </strong>
                   일 선택됨
                 </p>
+                {selectedDates.length > 0 &&
+                  selectedDates
+                    .map((date) => date.toLocaleDateString())
+                    .join(', ')}
               </div>
-              <div className='mt-4 flex justify-end'>
+
+              {/* 모달 하단 버튼 영역 */}
+              <div className="mt-4 flex justify-end">
+                {/* 신청 버튼 */}
+                <button
+                  onClick={() => {
+                    // 원하는 신청 로직 작성
+                    alert(
+                      `날짜 신청: ${selectedDates.map((d) => d.toDateString())}`
+                    )
+                    // 필요한 경우 setShowModal(false)로 모달 닫기
+                  }}
+                  className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 mr-2"
+                >
+                  신청
+                </button>
+
+                {/* 닫기 버튼 */}
                 <button
                   onClick={() => setShowModal(false)}
-                  className='px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600'
+                  className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
                 >
                   닫기
                 </button>
               </div>
             </div>
           </div>,
-          document.body // Render modal in the document body
+          document.body
         )
       : null
 
   return (
     <>
-      <tr className='hover:bg-gray-50'>
-        <td className='border border-gray-200 px-4 py-2'>
+      <tr className="hover:bg-gray-50">
+        <td className="border border-gray-200 px-4 py-2">
           {application.applicationTitle}
         </td>
-        <td className='border border-gray-200 px-4 py-2'>
+        <td className="border border-gray-200 px-4 py-2">
           {application.applicationType}
         </td>
-        <td className='border border-gray-200 px-4 py-2'>
+        <td className="border border-gray-200 px-4 py-2">
           {new Date(application.rangeEndDate).toLocaleDateString()}
         </td>
-        <td className='border border-gray-200 px-4 py-2'>
+        <td className="border border-gray-200 px-4 py-2">
           <button
             onClick={() => status === '신청' && setShowModal(true)}
             className={`px-4 py-1 rounded text-white ${
@@ -143,11 +165,6 @@ export default function ApplicationRow({
             {status}
           </button>
         </td>
-        {selectedDates.length > 0 && (
-          <td className='border border-gray-200 px-4 py-2'>
-            {selectedDates.map((date) => date.toLocaleDateString()).join(', ')}
-          </td>
-        )}
       </tr>
       <Modal />
     </>

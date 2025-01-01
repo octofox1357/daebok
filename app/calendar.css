@@ -1,3 +1,4 @@
+/* react-calendar 기본 설정 */
 .react-calendar {
   width: 100%;
   max-width: 100%;
@@ -7,17 +8,15 @@
   line-height: 1.125em;
 }
 
-/* 태블릿 이상 (768px ~) */
 @media (min-width: 768px) {
   .react-calendar {
-    line-height: 1.5em; /* 태블릿용 line-height */
+    line-height: 1.5em;
   }
 }
 
-/* 데스크톱 이상 (1024px ~) */
 @media (min-width: 1024px) {
   .react-calendar {
-    line-height: 1.75em; /* 데스크톱용 line-height */
+    line-height: 1.75em;
   }
 }
 
@@ -39,8 +38,6 @@
 .react-calendar *,
 .react-calendar *:before,
 .react-calendar *:after {
-  -moz-box-sizing: border-box;
-  -webkit-box-sizing: border-box;
   box-sizing: border-box;
 }
 
@@ -96,7 +93,7 @@
 }
 
 .react-calendar__month-view__days__day--weekend {
-  color: #d10000;
+  color: #d10000; /* 주말 색상(빨간색) */
 }
 
 .react-calendar__month-view__days__day--neighboringMonth,
@@ -136,34 +133,40 @@
   background-color: #e6e6e6;
 }
 
+/* 오늘 날짜 기본 스타일 (노란색) 제거 */
 .react-calendar__tile--now {
-  background: #ffff76;
+  background: none !important;
 }
 
+/* hover 및 focus 상태일 때의 노란색도 제거 */
 .react-calendar__tile--now:enabled:hover,
 .react-calendar__tile--now:enabled:focus {
-  background: #ffffa9;
+  background: none !important;
 }
 
-.react-calendar__tile--hasActive {
-  background: #76baff;
-}
-
-.react-calendar__tile--hasActive:enabled:hover,
-.react-calendar__tile--hasActive:enabled:focus {
-  background: #a9d4ff;
-}
-
+/* 선택된 날짜 스타일 (기본 파랑 + 흰 글씨) */
 .react-calendar__tile--active {
   background: #006edc;
   color: white;
 }
-
 .react-calendar__tile--active:enabled:hover,
 .react-calendar__tile--active:enabled:focus {
   background: #1087ff;
 }
 
+/* 날짜 범위 선택 시 hover 스타일 */
 .react-calendar--selectRange .react-calendar__tile--hover {
   background-color: #e6e6e6;
+}
+
+/* 선택된 날짜 스타일 (평일: 파란 배경 + 흰 글씨) */
+.react-calendar__tile--active {
+  background: #006edc;
+  color: white;
+}
+
+/* 선택된 날짜 hover 상태 (평일) */
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background: #1087ff;
 }
