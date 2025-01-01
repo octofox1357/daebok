@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { generateToken } from '@/lib/jwt'
 import { cookies } from 'next/headers'
+import internal from 'stream'
 
 export async function loginAction(formData: FormData) {
   // Extract data from FormData
@@ -87,4 +88,35 @@ export async function registerAction(formData: FormData) {
   })
 
   return { message: '회원가입이 완료되었습니다.' }
+}
+
+export async function outingApplicationAction (formData: FormData){
+  const applicationTitle = formData.get('applicationTitle') as string
+  const applicationType = formData.get('applicationType') as string
+  const rangeStartDate = new Date(formData.get('rangeStartDate') as string)
+  const rangeEndDate = new Date(formData.get('rangeEndDate') as string)
+  const startDate = new Date(formData.get('startDate') as string)
+  const endDate = new Date(formData.get('endDate') as string)
+  const weekDayLimit = formData.get('weekDayLimit') as string
+  const weekEndLimit = formData.get('weekEndLimit') as string
+  const applicationApprove = formData.get('applicationApprove')
+
+
+
+  const limit = {"weekDayLimit":weekDayLimit, "weekEndLimit": weekEndLimit}
+
+   await prisma.application.create({
+     data: {
+      applicationTitle,
+      applicationType,
+      rangeStartDate,
+      rangeEndDate,
+      startDate,
+      endDate,
+      applicationLimit: JSON.stringify(limit),
+      applicationApprove: applicationApprove ? true: false
+     }
+   })
+
+  return { message: '생성 성공' }
 }

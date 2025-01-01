@@ -1,15 +1,43 @@
 'use client'
 
+import { useState } from 'react'
 import React from 'react'
+import { outingApplicationAction } from '@/app/actions'
+import { useRouter } from 'next/navigation'
 
 export default function ApplicationCreation() {
+  const router = useRouter()
+  const [error, setError] = useState('')
+  //const [success, setSuccess] = useState('')
+
+  //외출 신청 생성 제출
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const formData = new FormData(e.currentTarget)
+    e.preventDefault()
+    setError('')
+    //setSuccess('')
+
+    try {
+      const response = await outingApplicationAction(formData)
+      alert(response.message)
+      //router.push('/api/actions')
+    } catch (err) {
+      if (err instanceof Error) {
+        console.error(err.message)
+        setError(err.message || '외출신청 생성 중 오류가 발생했습니다.')
+      }
+    }
+  }
+
+
 
   return (
     <div className="max-w-4xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">신청접수 생성하기</h1>
       <form
         method="POST"
-        action={'/api/applications/'}
+        onSubmit={handleSubmit}
+        //action={'/api/applications/'}
         className="bg-white shadow-md rounded-lg p-6"
       >
         <div className="mb-4">
@@ -35,6 +63,7 @@ export default function ApplicationCreation() {
                   value={type} // 필수: 선택 시 전송될 값
                   defaultChecked={type === '외출'}
                   className="form-radio"
+                  required
                 />
                 <span>{type}</span>
               </label>
@@ -73,6 +102,7 @@ export default function ApplicationCreation() {
               defaultValue=""
               className="form-input w-full"
               placeholder="노출 시작일 선택"
+              required
             />
             <input
               type="date"
@@ -80,6 +110,7 @@ export default function ApplicationCreation() {
               defaultValue=""
               className="form-input w-full"
               placeholder="노출 마감일 선택"
+              required
             />
           </div>
         </div>
@@ -93,6 +124,7 @@ export default function ApplicationCreation() {
               defaultValue=""
               className="form-input w-full"
               placeholder="핑일 외출 일수"
+              required
             />
             <input
               type="number"
@@ -100,6 +132,7 @@ export default function ApplicationCreation() {
               defaultValue=""
               className="form-input w-full"
               placeholder="휴일 외출 일수"
+              required
             />
           </div>
         </div>
@@ -112,6 +145,7 @@ export default function ApplicationCreation() {
               name="applicationApprove"
               value="true" // 필수: 체크 시 전송될 값
               className="form-checkbox"
+              required
             />
             <span className="ml-2">승인 필요</span>
           </label>
@@ -127,3 +161,4 @@ export default function ApplicationCreation() {
     </div>
   )
 }
+
