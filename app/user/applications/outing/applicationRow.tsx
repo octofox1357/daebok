@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import 'react-calendar/dist/Calendar.css'
+// import 'react-calendar/dist/Calendar.css'
 import '../../../calendar.css'
 import Calendar from 'react-calendar'
 import { createPortal } from 'react-dom'
@@ -11,8 +11,8 @@ export default function ApplicationRow({
 }: {
   application: Application
 }) {
-  const [showModal, setShowModal] = useState(false) // 모달 표시 여부
-  const [selectedDates, setSelectedDates] = useState<Date[]>([]) // 선택된 날짜들
+  const [showModal, setShowModal] = useState(false)
+  const [selectedDates, setSelectedDates] = useState<Date[]>([])
 
   const getStatusLabel = (rangeEndDate: string): string => {
     const now = new Date()
@@ -27,12 +27,10 @@ export default function ApplicationRow({
       )
 
       if (isAlreadySelected) {
-        // 이미 선택된 날짜를 클릭하면 선택 해제
         setSelectedDates((prev) =>
           prev.filter((date) => date.toDateString() !== value.toDateString())
         )
       } else {
-        // 선택 조건 검사 (최대 3일, 주중 2일, 주말 1일 제한)
         const weekdays = selectedDates.filter(
           (date) => date.getDay() !== 0 && date.getDay() !== 6
         ).length
@@ -54,20 +52,25 @@ export default function ApplicationRow({
           return
         }
 
-        // 새로운 날짜 추가
         setSelectedDates((prev) => [...prev, value])
       }
     }
   }
 
   const tileClassName = ({ date }: { date: Date }) => {
-    // 선택된 날짜에 파란색 배경과 하얀 텍스트 스타일을 적용
     if (
       selectedDates.some(
         (selectedDate) => selectedDate.toDateString() === date.toDateString()
       )
     ) {
+      if (date.getDay() === 0 || date.getDay() === 6) {
+        return 'bg-red-500 text-white'
+      }
       return 'bg-blue-500 text-white'
+    }
+
+    if (date.getDay() === 0 || date.getDay() === 6) {
+      return 'text-red-500'
     }
     return ''
   }
@@ -81,11 +84,16 @@ export default function ApplicationRow({
             <div className="bg-white p-6 rounded shadow-lg w-96">
               <h2 className="text-lg font-semibold mb-4">날짜 선택</h2>
               <Calendar
-                onChange={handleDateSelect}
-                value={null}
-                minDate={new Date()}
+                onClickDay={handleDateSelect}
+                locale="ko-KR"
+                // minDate={new Date()}
                 tileClassName={tileClassName}
+                minDetail="month"
+                maxDetail="month"
                 className="rounded-lg"
+                calendarType="gregory"
+                prev2Label={null}
+                next2Label={null}
               />
               <div className="mt-4 text-gray-700 text-sm">
                 <p>
@@ -112,24 +120,17 @@ export default function ApplicationRow({
                     .map((date) => date.toLocaleDateString())
                     .join(', ')}
               </div>
-
-              {/* 모달 하단 버튼 영역 */}
               <div className="mt-4 flex justify-end">
-                {/* 신청 버튼 */}
                 <button
                   onClick={() => {
-                    // 원하는 신청 로직 작성
                     alert(
                       `날짜 신청: ${selectedDates.map((d) => d.toDateString())}`
                     )
-                    // 필요한 경우 setShowModal(false)로 모달 닫기
                   }}
                   className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 mr-2"
                 >
                   신청
                 </button>
-
-                {/* 닫기 버튼 */}
                 <button
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-white bg-gray-500 rounded hover:bg-gray-600"
