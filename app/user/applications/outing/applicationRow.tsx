@@ -3,8 +3,8 @@ import React, { useState } from 'react'
 import '../../../calendar.css'
 import Calendar from 'react-calendar'
 import { createPortal } from 'react-dom'
-import { Application } from '../types'
 import { Value } from 'react-calendar/src/shared/types.js'
+import { Application } from '@prisma/client'
 
 export default function ApplicationRow({
   application
@@ -14,9 +14,9 @@ export default function ApplicationRow({
   const [showModal, setShowModal] = useState(false)
   const [selectedDates, setSelectedDates] = useState<Date[]>([])
 
-  const getStatusLabel = (rangeEndDate: string): string => {
+  const getStatusLabel = (endDate: string): string => {
     const now = new Date()
-    const end = new Date(rangeEndDate)
+    const end = new Date(endDate)
     return now > end ? '접수마감' : '신청'
   }
 
@@ -75,7 +75,7 @@ export default function ApplicationRow({
     return ''
   }
 
-  const status = getStatusLabel(application.rangeEndDate)
+  const status = getStatusLabel(application.endDate.toString())
 
   const Modal = () =>
     showModal
@@ -154,7 +154,7 @@ export default function ApplicationRow({
           {application.applicationType}
         </td>
         <td className="border border-gray-200 px-4 py-2">
-          {new Date(application.rangeEndDate).toLocaleDateString()}
+          {new Date(application.endDate).toLocaleDateString()}
         </td>
         <td className="border border-gray-200 px-4 py-2">
           <button

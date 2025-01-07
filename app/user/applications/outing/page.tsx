@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import ApplicationRow from './applicationRow'
-import { Application } from '../types'
+import { Application } from '@prisma/client'
 
 // 상수
 const ITEMS_PER_PAGE = 10
